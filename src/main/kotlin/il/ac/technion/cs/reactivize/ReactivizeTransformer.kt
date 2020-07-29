@@ -21,6 +21,9 @@ class ReactivizeTransformer {
 
 
     fun handleAnnotatedMethod(m: SootMethod): List<SootClass> {
+        if (!m.hasActiveBody()) {
+            Scene.v().forceResolve(m.declaringClass.name, SootClass.BODIES)
+        }
         val body = m.activeBody as JimpleBody
         val cfg = ExceptionalUnitGraph(body)
         val analysis = object : MyBackwardFlowAnalysis(cfg) {
