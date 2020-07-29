@@ -1,5 +1,6 @@
 plugins {
     kotlin("jvm") version "1.4.0-rc"
+    maven
 }
 
 group = "il.ac.technion.cs"
