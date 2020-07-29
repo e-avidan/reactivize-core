@@ -21,7 +21,8 @@ repositories {
 }
 
 dependencies {
-    implementation(kotlin("stdlib"))
+    implementation(kotlin("stdlib-jdk8"))
+    implementation(kotlin("reflect"))
     implementation("io.reactivex.rxjava3", "rxjava", "3.0.4")
     implementation("io.reactivex.rxjava3", "rxkotlin", "3.0.0")
     implementation("com.github.kotlinx.ast", "common", "master-SNAPSHOT")
