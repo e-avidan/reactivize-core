@@ -192,7 +192,7 @@ class ReactivizeTransformer {
             .find { it.annotations.any { a -> a.type.contains("Reactivize") } }
             ?.addAnnotation(AnnotationTag("Lil/ac/technion/cs/reactivize/TransformedMarker"))
 
-        return listOf(lambdaClass, m.declaringClass)
+        return listOf(lambdaClass, m.declaringClass) + map.keys.toList()
     }
 
     private fun handleSourceMethod(m: SootMethod): Map<SootClass, List<SootField>> {
