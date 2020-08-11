@@ -7,4 +7,4 @@ package il.ac.technion.cs.reactivize.api
     AnnotationTarget.PROPERTY_SETTER
 )
 @Retention(AnnotationRetention.BINARY)
-annotation class Reactivize
+annotation class TransformedMarker

@@ -6,7 +6,10 @@ import soot.baf.BafASMBackend
 import soot.options.Options
 import java.io.FileOutputStream
 
-val REQUIRED_CLASS_NAMES = listOf("io.reactivex.rxjava3.subjects.BehaviorSubject")
+val REQUIRED_CLASS_NAMES = listOf(
+    "io.reactivex.rxjava3.subjects.BehaviorSubject",
+    "il.ac.technion.cs.reactivize.api.TransformedMarker"
+)
 
 class ReactivizePostCompiler {
     fun execute(spec: ReactivizeCompileSpec) {

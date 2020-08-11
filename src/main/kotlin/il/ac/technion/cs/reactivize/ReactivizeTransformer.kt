@@ -3,6 +3,7 @@ package il.ac.technion.cs.reactivize
 import soot.*
 import soot.Unit
 import soot.jimple.*
+import soot.tagkit.AnnotationTag
 import soot.tagkit.VisibilityAnnotationTag
 import soot.toolkits.graph.ExceptionalUnitGraph
 import soot.toolkits.graph.UnitGraph
@@ -17,6 +18,9 @@ class ReactivizeTransformer {
         Scene.v().applicationClasses.flatMap { it.methods }.filter { m ->
             m.tags.filterIsInstance<VisibilityAnnotationTag>().flatMap { it.annotations }.map { it.type }
                 .any { it.contains("Reactivize") }
+        }.filterNot { m ->
+            m.tags.filterIsInstance<VisibilityAnnotationTag>().flatMap { it.annotations }.map { it.type }
+                .any { it.contains("TransformedMarker") }
         }
 
 
@@ -181,8 +185,12 @@ class ReactivizeTransformer {
         }
 
         newBody.units.add(Jimple.v().newReturnVoidStmt())
-
         println(newBody)
+
+        m.tags
+            .filterIsInstance<VisibilityAnnotationTag>()
+            .find { it.annotations.any { a -> a.type.contains("Reactivize") } }
+            ?.addAnnotation(AnnotationTag("Lil/ac/technion/cs/reactivize/TransformedMarker"))
 
         return listOf(lambdaClass, m.declaringClass)
     }
