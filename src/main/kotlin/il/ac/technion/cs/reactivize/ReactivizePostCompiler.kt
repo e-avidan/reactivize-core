@@ -1,9 +1,7 @@
 package il.ac.technion.cs.reactivize
 
-import soot.G
-import soot.Scene
-import soot.SootClass
-import soot.SourceLocator
+import boomerang.scene.jimple.BoomerangPretransformer
+import soot.*
 import soot.baf.BafASMBackend
 import soot.options.Options
 import java.io.FileOutputStream
@@ -11,6 +9,7 @@ import java.io.FileOutputStream
 class ReactivizePostCompiler {
     fun execute(spec: ReactivizeCompileSpec) {
         initSoot(spec)
+        runSoot(spec)
         val transformer = ReactivizeTransformer()
         transformer.transform().forEach {
             emit(it, spec)
@@ -43,19 +42,34 @@ class ReactivizePostCompiler {
         Options.v().set_prepend_classpath(true)
         Options.v().set_no_bodies_for_excluded(true)
         Options.v().set_allow_phantom_refs(true)
-        // Options.v().set_main_class(klass)
         Options.v().set_whole_program(true)
 
         Options.v().setPhaseOption("cg.spark", "on")
         Options.v().setPhaseOption("jb", "use-original-names:true")
         Options.v().set_output_format(Options.output_format_jimple)
 
-        for (className in spec.classNames) {
+        for (className in spec.applicationClassNames) {
             Scene.v().addBasicClass(className, SootClass.BODIES)
             val c = Scene.v().forceResolve(className, SootClass.BODIES)
             c.setApplicationClass()
         }
+        for (c in Scene.v().classes) {
+            // TODO: Replace with Trie, to avoid O(n*m)
+            for (p in spec.applicationClassPackagePrefixes) {
+                if (c.javaStyleName.startsWith(p)) {
+                    c.setApplicationClass()
+                }
+            }
+        }
         Scene.v().addBasicClass("io.reactivex.rxjava3.subjects.BehaviorSubject", SootClass.BODIES)
         Scene.v().loadNecessaryClasses()
+    }
+
+    private fun runSoot(spec: ReactivizeCompileSpec) {
+        // TODO: Make the Reactivization run as part of the regular Soot run, instead of afterwards?
+        PackManager.v().getPack("cg").apply()
+        BoomerangPretransformer.v().apply()
+        PackManager.v().getPack("wjtp").apply()
+        PackManager.v().runPacks()
     }
 }

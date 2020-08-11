@@ -20,7 +20,7 @@ class ReactivizeTransformer {
         }
 
 
-    fun handleAnnotatedMethod(m: SootMethod): List<SootClass> {
+    private fun handleAnnotatedMethod(m: SootMethod): List<SootClass> {
         if (!m.hasActiveBody()) {
             Scene.v().forceResolve(m.declaringClass.name, SootClass.BODIES)
         }
@@ -187,7 +187,7 @@ class ReactivizeTransformer {
         return listOf(lambdaClass, m.declaringClass)
     }
 
-    fun handleSourceMethod(m: SootMethod): Map<SootClass, List<SootField>> {
+    private fun handleSourceMethod(m: SootMethod): Map<SootClass, List<SootField>> {
         println(m)
 
         val body = m.activeBody as JimpleBody
@@ -223,7 +223,7 @@ class ReactivizeTransformer {
         return mapOf(Pair(cls, handleClass(cls, fields)))
     }
 
-    fun handleClass(cls: SootClass, fields: MutableList<SootField>): List<SootField> {
+    private fun handleClass(cls: SootClass, fields: MutableList<SootField>): List<SootField> {
         println(cls.methods)
         println(cls.fields)
 

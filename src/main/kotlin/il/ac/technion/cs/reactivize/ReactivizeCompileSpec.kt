@@ -8,5 +8,6 @@ data class ReactivizeCompileSpec(
     val tempDir: File,
     val compileClasspath: Iterable<File>,
     val inpath: Iterable<File>,
-    val classNames: Iterable<String>
+    val applicationClassNames: Iterable<String>,
+    val applicationClassPackagePrefixes: Iterable<String>
 )
