@@ -6,6 +6,8 @@ import soot.baf.BafASMBackend
 import soot.options.Options
 import java.io.FileOutputStream
 
+val REQUIRED_CLASS_NAMES = listOf("io.reactivex.rxjava3.subjects.BehaviorSubject")
+
 class ReactivizePostCompiler {
     fun execute(spec: ReactivizeCompileSpec) {
         initSoot(spec)
@@ -48,6 +50,8 @@ class ReactivizePostCompiler {
         Options.v().setPhaseOption("jb", "use-original-names:true")
         Options.v().set_output_format(Options.output_format_jimple)
 
+        REQUIRED_CLASS_NAMES.forEach(Scene.v()::addBasicClass)
+
         for (className in spec.applicationClassNames) {
             Scene.v().addBasicClass(className, SootClass.BODIES)
             val c = Scene.v().forceResolve(className, SootClass.BODIES)
@@ -61,7 +65,6 @@ class ReactivizePostCompiler {
                 }
             }
         }
-        Scene.v().addBasicClass("io.reactivex.rxjava3.subjects.BehaviorSubject", SootClass.BODIES)
         Scene.v().loadNecessaryClasses()
     }
 

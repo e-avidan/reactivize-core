@@ -231,6 +231,9 @@ class ReactivizeTransformer {
 
         for (field in fields) {
             /* Create a new observable */
+            val newFieldName = field.name + "\$Observable"
+            println("Creating $newFieldName in ${cls.javaStyleName}")
+            assert(newFieldName !in cls.fields.map(SootField::getName)) { "$newFieldName in ${cls.javaStyleName} (${cls.fields})" }
             val newField =
                 SootField(field.name + "\$Observable", RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
             cls.addField(newField)
