@@ -256,20 +256,19 @@ class ReactivizeTransformer {
             initBody.locals.add(observableLocal)
             val observableCall = Scene.v()
                 .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject createDefault(java.lang.Object)>")
-            initBody.units.add(
-                Jimple.v()
-                    .newAssignStmt(fieldLocal, Jimple.v().newInstanceFieldRef(initBody.thisLocal, field.makeRef()))
-            )
-            initBody.units.add(
-                Jimple.v()
-                    .newAssignStmt(observableLocal, Jimple.v().newStaticInvokeExpr(observableCall.makeRef()))
-            )
-            initBody.units.add(
-                Jimple.v()
-                    .newAssignStmt(
-                        Jimple.v().newInstanceFieldRef(initBody.thisLocal, newField.makeRef()),
-                        observableLocal
-                    )
+            assert(initBody.units.last is ReturnStmt)
+            initBody.units.insertBefore(
+                listOf(
+                    Jimple.v()
+                        .newAssignStmt(fieldLocal, Jimple.v().newInstanceFieldRef(initBody.thisLocal, field.makeRef())),
+                    Jimple.v()
+                        .newAssignStmt(observableLocal, Jimple.v().newStaticInvokeExpr(observableCall.makeRef())),
+                    Jimple.v()
+                        .newAssignStmt(
+                            Jimple.v().newInstanceFieldRef(initBody.thisLocal, newField.makeRef()),
+                            observableLocal
+                        )
+                ), initBody.units.last // assuming this is a return statement
             )
 
             /* Call onNext on the observable in the setter */
