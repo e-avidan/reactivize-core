@@ -172,7 +172,7 @@ class ReactivizeTransformer {
                     add(
                         Jimple.v().newInvokeStmt(
                             Jimple.v().newVirtualInvokeExpr(
-                                consumer,
+                                observable,
                                 Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
                                     .getMethod("io.reactivex.rxjava3.disposables.Disposable subscribe(io.reactivex.rxjava3.functions.Consumer)")
                                     .makeRef(),
