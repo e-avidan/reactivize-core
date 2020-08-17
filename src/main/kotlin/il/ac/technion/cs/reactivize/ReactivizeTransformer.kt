@@ -252,6 +252,9 @@ class ReactivizeTransformer {
             val fieldLocal =
                 Jimple.v().newLocal("currentField", field.type)
             initBody.locals.add(fieldLocal)
+            val observableLocal =
+                Jimple.v().newLocal("observableTemp", RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
+            initBody.locals.add(observableLocal)
             val observableCall = Scene.v()
                 .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject createDefault(java.lang.Object)>")
             assert(initBody.units.last is ReturnStmt)
@@ -264,8 +267,13 @@ class ReactivizeTransformer {
                         ),
                     Jimple.v()
                         .newAssignStmt(
-                            Jimple.v().newInstanceFieldRef(initBody.thisLocal, newField.makeRef()),
+                            observableLocal,
                             Jimple.v().newStaticInvokeExpr(observableCall.makeRef(), fieldLocal)
+                        ),
+                    Jimple.v()
+                        .newAssignStmt(
+                            Jimple.v().newInstanceFieldRef(initBody.thisLocal, newField.makeRef()),
+                            observableLocal
                         )
                 ), initBody.units.last // assuming this is a return statement
             )
