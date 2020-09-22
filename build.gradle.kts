@@ -1,5 +1,5 @@
 plugins {
-    kotlin("jvm") version "1.4.0-rc"
+    kotlin("jvm") version "1.4.0"
     maven
 }
 
@@ -25,15 +25,15 @@ dependencies {
     implementation(kotlin("reflect"))
     implementation("io.reactivex.rxjava3", "rxjava", "3.0.4")
     implementation("io.reactivex.rxjava3", "rxkotlin", "3.0.0")
-    //implementation("com.github.kotlinx.ast", "common", "master-SNAPSHOT")
-    //implementation("com.github.kotlinx.ast", "parser-antlr-kotlin", "master-SNAPSHOT")
-    //implementation("com.github.kotlinx.ast", "grammar-kotlin-parser-antlr-kotlin", "master-SNAPSHOT")
     implementation("org.soot-oss", "soot", "4.2.1")
     implementation("com.github.CROSSINGTUD", "SPDS", "3.0")
 
     testImplementation("org.assertj", "assertj-core", "3.16.1")
     testImplementation("org.junit.jupiter", "junit-jupiter-api", "5.6.2")
     testImplementation("org.junit.jupiter", "junit-jupiter-engine", "5.6.2")
+
+    // for finance api
+    testImplementation("com.yahoofinance-api", "YahooFinanceAPI", "3.15.0")
 }
 
 tasks {
