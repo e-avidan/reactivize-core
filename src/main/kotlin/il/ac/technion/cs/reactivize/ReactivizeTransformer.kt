@@ -331,7 +331,11 @@ class ReactivizeTransformer(val spec: ReactivizeCompileSpec) {
 class TransformVisitor : WorkUnitVisitor {
     override fun visit(v: ValueMethod) {
         val m = v.sootMethod
+
+        // Need to create this here because we reference it.
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
+        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), VoidType.v())
+        m.declaringClass.addMethod(subscriberMethod)
 
         // TODO: Move lambda class naming to analysis stage
         val lambdaClass =
@@ -371,7 +375,7 @@ class TransformVisitor : WorkUnitVisitor {
                 Jimple.v()
                     .newVirtualInvokeExpr(
                         acceptOuterThis,
-                        m.declaringClass.getMethodByName(v.subscriberMethodName).makeRef()
+                        subscriberMethod.makeRef()
                     )
             )
         )
@@ -402,10 +406,9 @@ class TransformVisitor : WorkUnitVisitor {
         }
         lambdaClass.addMethod(acceptInitMethod)
 
-        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), VoidType.v())
         val subscriberBody = Jimple.v().newBody(subscriberMethod)
         subscriberMethod.activeBody = subscriberBody
-        m.declaringClass.addMethod(subscriberMethod)
+
 
         subscriberBody.apply {
             locals.add(Jimple.v().newLocal("this", m.declaringClass.type))
