@@ -116,9 +116,9 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                             sootClass.packageName.startsWith(prefix)
                         })
                     // FIXME: fieldInParent shouldn't be null, it should be a path to the the instance.
-                        analyzeMethod(method, findRequestedObservableName(method), null)
+                        analyzeMethod(method, findRequestedObservableName(method), null).asSequence()
                     else
-                        listOf()
+                        listOf<ReactivizableFieldInClass>().asSequence()
                 })
         }.toList()
     }

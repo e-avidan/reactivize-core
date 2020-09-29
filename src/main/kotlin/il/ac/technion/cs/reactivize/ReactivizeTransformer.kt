@@ -362,6 +362,7 @@ class TransformVisitor : WorkUnitVisitor {
         val acceptThis = Jimple.v().newLocal("this", lambdaClass.type)
         acceptBody.locals.add(acceptThis)
         val acceptOuterThis = Jimple.v().newLocal("\$stack1", m.declaringClass.type)
+
         acceptBody.locals.add(acceptOuterThis)
 
         acceptBody.units.add(Jimple.v().newIdentityStmt(acceptThis, Jimple.v().newThisRef(lambdaClass.type)))
