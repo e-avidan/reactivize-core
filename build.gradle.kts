@@ -36,6 +36,24 @@ dependencies {
     testImplementation("com.yahoofinance-api", "YahooFinanceAPI", "3.15.0")
 }
 
+java {
+    withSourcesJar()
+}
+
+val sourcesJar by tasks.creating(Jar::class) {
+    archiveClassifier.set("sources")
+    from(sourceSets.getByName("main").allSource)
+}
+
+publishing {
+    publications {
+        register<MavenPublication>("mavenJava") {
+            from(components["java"])
+            artifact(sourcesJar)
+        }
+    }
+}
+
 tasks {
     compileKotlin {
         kotlinOptions.jvmTarget = "1.8"
