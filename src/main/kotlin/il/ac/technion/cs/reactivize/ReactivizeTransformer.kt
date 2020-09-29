@@ -332,12 +332,6 @@ class TransformVisitor : WorkUnitVisitor {
     override fun visit(v: ValueMethod) {
         val m = v.sootMethod
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
-        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), VoidType.v())
-        val subscriberBody = Jimple.v().newBody(subscriberMethod)
-        subscriberMethod.activeBody = subscriberBody
-        m.declaringClass.addMethod(subscriberMethod)
-        subscriberBody.units.addAll(m.activeBody.units)
-        subscriberBody.locals.addAll(m.activeBody.locals)
 
         // TODO: Move lambda class naming to analysis stage
         val lambdaClass =
@@ -408,9 +402,12 @@ class TransformVisitor : WorkUnitVisitor {
         }
         lambdaClass.addMethod(acceptInitMethod)
 
-        val newBody = Jimple.v().newBody(m)
-        m.activeBody = newBody
-        newBody.apply {
+        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), VoidType.v())
+        val subscriberBody = Jimple.v().newBody(subscriberMethod)
+        subscriberMethod.activeBody = subscriberBody
+        m.declaringClass.addMethod(subscriberMethod)
+
+        subscriberBody.apply {
             locals.add(Jimple.v().newLocal("this", m.declaringClass.type))
             units.add(Jimple.v().newIdentityStmt(locals.first, Jimple.v().newThisRef(m.declaringClass.type)))
         }
@@ -427,25 +424,23 @@ class TransformVisitor : WorkUnitVisitor {
                 "observable",
                 Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
             )
-            newBody.locals.add(observable)
             val lambda = Jimple.v().newLocal("lambda", lambdaClass.type)
-            newBody.locals.add(lambda)
             val consumer = Jimple.v()
                 .newLocal("consumer", Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
-            newBody.locals.add(consumer)
+            subscriberBody.locals.addAll(listOf(observable, lambda, consumer))
 
-            newBody.units.apply {
+            subscriberBody.units.apply {
                 add(
                     Jimple.v().newAssignStmt(
                         observable,
-                        Jimple.v().newInstanceFieldRef(newBody.thisLocal, observableField.makeRef())
+                        Jimple.v().newInstanceFieldRef(subscriberBody.thisLocal, observableField.makeRef())
                     )
                 )
                 add(Jimple.v().newAssignStmt(lambda, Jimple.v().newNewExpr(lambdaClass.type)))
                 add(
                     Jimple.v().newInvokeStmt(
                         Jimple.v()
-                            .newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(newBody.thisLocal))
+                            .newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(subscriberBody.thisLocal))
                     )
                 )
                 add(
@@ -480,27 +475,25 @@ class TransformVisitor : WorkUnitVisitor {
                 return@forEach
             }
             val memberInstance = Jimple.v().newLocal("thing", subunit.sootClass.type)
-            val memberObservableField = subunit.sootClass.getField(
-                subunit.observableFieldName,
-                Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
-            )
-            newBody.locals.add(memberInstance)
             val observable = Jimple.v().newLocal(
                 "observable",
                 Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
             )
-            newBody.locals.add(observable)
             val lambda = Jimple.v().newLocal("lambda", lambdaClass.type)
-            newBody.locals.add(lambda)
             val consumer = Jimple.v()
                 .newLocal("consumer", Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
-            newBody.locals.add(consumer)
+            subscriberBody.locals.addAll(listOf(memberInstance, observable, lambda, consumer))
 
-            newBody.units.apply {
+            val memberObservableField = subunit.sootClass.getField(
+                subunit.observableFieldName,
+                Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+            )
+
+            subscriberBody.units.apply {
                 add(
                     Jimple.v().newAssignStmt(
                         memberInstance,
-                        Jimple.v().newInstanceFieldRef(newBody.thisLocal, memberField.makeRef())
+                        Jimple.v().newInstanceFieldRef(subscriberBody.thisLocal, memberField.makeRef())
                     )
                 )
                 add(
@@ -513,7 +506,7 @@ class TransformVisitor : WorkUnitVisitor {
                 add(
                     Jimple.v().newInvokeStmt(
                         Jimple.v()
-                            .newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(newBody.thisLocal))
+                            .newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(subscriberBody.thisLocal))
                     )
                 )
                 add(
@@ -539,7 +532,7 @@ class TransformVisitor : WorkUnitVisitor {
             }
         }
 
-        newBody.units.add(Jimple.v().newReturnVoidStmt())
+        subscriberBody.units.add(Jimple.v().newReturnVoidStmt())
     }
 
     override fun visit(v: FunctionCallingMethod) {
