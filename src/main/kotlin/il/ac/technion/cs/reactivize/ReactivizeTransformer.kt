@@ -543,7 +543,7 @@ class TransformVisitor : WorkUnitVisitor {
     }
 
     override fun visit(v: FunctionCallingMethod) {
-        TODO("Not yet implemented")
+        // FIXME: Do something. But don't throw.
     }
 
     override fun visit(v: ClassWithObservable) {
