@@ -3,6 +3,7 @@ package il.ac.technion.cs.reactivize
 import il.ac.technion.cs.reactivize.api.TransformedMarker
 import il.ac.technion.cs.reactivize.graph.*
 import soot.*
+import soot.Unit
 import soot.jimple.*
 import soot.tagkit.AnnotationStringElem
 import soot.tagkit.AnnotationTag
@@ -12,7 +13,12 @@ import soot.toolkits.graph.ExceptionalUnitGraph
 class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
     fun createGraph(): List<WorkUnit> = findAnnotatedMethods().flatMap(this::analyzeAnnotatedMethod)
 
-    fun analyzeMethod(m: SootMethod, observableCandidateName: String?, fieldInParent: SootField?): List<WorkUnit> {
+    fun analyzeMethod(
+        m: SootMethod,
+        observableCandidateName: String?,
+        callingMethod: SootMethod?,
+        unitInCallingMethod: Unit?
+    ): List<WorkUnit> {
         val body = m.activeBody as JimpleBody
         val analysis = object : MyBackwardFlowAnalysis(ExceptionalUnitGraph(body)) {
             init {
@@ -26,7 +32,7 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
 
         return listOf(
             ClassWithObservable(
-                m.declaringClass, fieldInParent, observableName, listOf(
+                m.declaringClass, callingMethod, unitInCallingMethod, observableName, listOf(
                     ValueMethod(
                         m,
                         subscriberMethodName,
@@ -54,6 +60,7 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                 ClassWithObservable(
                     m.declaringClass,
                     null,
+                    null,
                     observableCandidateName,
                     listOf(
                         ValueMethod(
@@ -65,8 +72,10 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                     )
                 )
             } else {
+
                 ClassWithObservable(
                     m.declaringClass,
+                    null,
                     null,
                     "???", // FIXME: This is likely wrong
                     listOf(FunctionCallingMethod(m, subscriberMethodName, analyzeMethodInstructions(body, analysis)))
@@ -79,18 +88,23 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
         body: JimpleBody,
         analysis: MyBackwardFlowAnalysis
     ): List<WorkUnit> {
+        /*val pathAnalysis = object : FindPathDataFlowAnalysis(ExceptionalUnitGraph(body)) {
+            init {
+                doAnalysis()
+            }
+        }*/
         return sequence {
             yieldAll(body.units.asSequence().filterIsInstance<Stmt>()
                 .filterIsInstance<AssignStmt>()
                 .filter { it.containsFieldRef() && it.leftOp in analysis.getFlowAfter(it) }
-                .map(AssignStmt::getFieldRef)
-                .filterIsInstance<InstanceFieldRef>()
-                .filter { (it.base as Local).name == "this" }
+                .map { Pair(it, it.fieldRef) }
+                .filterIsInstance<Pair<AssignStmt, InstanceFieldRef>>()
+                .filter { (it.second.base as Local).name == "this" }
                 .filter { // Make sure it has a setter (i.e., it's mutable)
                     try {
                         body.method.declaringClass.getMethod(
-                            "set" + it.field.name.capitalize(),
-                            listOf(it.type)
+                            "set" + it.second.field.name.capitalize(),
+                            listOf(it.second.type)
                         ) != null
                     } catch (e: Exception) {
                         false
@@ -98,9 +112,10 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                 }
                 .map {
                     ReactivizableFieldInClass(
-                        it.field,
+                        it.second.field,
                         body.method.declaringClass,
-                        createObservableName(it.field),
+                        it.first,
+                        createObservableName(it.second.field),
                         listOf()
                     )
                 }
@@ -112,13 +127,22 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                 .flatMap {
                     val method = it.second.method
                     val sootClass = method.declaringClass
+
                     if (null != spec.applicationClassPackagePrefixes.find { prefix ->
                             sootClass.packageName.startsWith(prefix)
-                        })
-                    // FIXME: fieldInParent shouldn't be null, it should be a path to the the instance.
-                        analyzeMethod(method, findRequestedObservableName(method), null).asSequence()
-                    else
+                        }) {
+                        // FIXME: fieldInParent shouldn't be null, it should be a path to the the instance.
+                        println("Analyze method: $method")
+                        println("Path analysis: ${analysis.getFlowAfter(it.first)}")
+                        analyzeMethod(
+                            method,
+                            findRequestedObservableName(method),
+                            body.method,
+                            it.first
+                        ).asSequence()
+                    } else {
                         listOf<ReactivizableFieldInClass>().asSequence()
+                    }
                 })
         }.toList()
     }
