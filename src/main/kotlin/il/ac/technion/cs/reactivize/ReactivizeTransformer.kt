@@ -127,96 +127,38 @@ class TransformVisitor : WorkUnitVisitor {
             val baseLocal = fieldRef.base as Local
             val namePrefix = "${baseLocal.name}_${fieldRef.field.name}_"
 
-            val observable = Jimple.v().newLocal(
-                "${namePrefix}observable",
-                Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
-            )
-            val lambda = Jimple.v().newLocal("${namePrefix}lambda", lambdaClass.type)
-            val consumer = Jimple.v()
-                .newLocal(
-                    "${namePrefix}consumer",
-                    Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type
-                )
-            subscriberBody.locals.addAll(listOf(observable, lambda, consumer))
-
-            val observableField = field.sootClass.getField(
+            unitToInstructionsMap[stmt] = createSubscribeMethodInstructions(
+                field.sootClass,
                 field.observerName,
-                Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+                namePrefix,
+                subscriberBody,
+                lambdaClass,
+                acceptInitMethod,
+                baseLocal
             )
-
-            Jimple.v().apply {
-                unitToInstructionsMap[stmt] = listOf(
-                    newAssignStmt(
-                        observable,
-                        newInstanceFieldRef(baseLocal, observableField.makeRef())
-                    ),
-                    newAssignStmt(lambda, newNewExpr(lambdaClass.type)),
-                    newInvokeStmt(
-                        newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(subscriberBody.thisLocal))
-                    ),
-                    newAssignStmt(
-                        consumer,
-                        newCastExpr(lambda, Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
-                    ),
-                    newInvokeStmt(
-                        newVirtualInvokeExpr(
-                            observable, Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
-                                .getMethod("io.reactivex.rxjava3.disposables.Disposable subscribe(io.reactivex.rxjava3.functions.Consumer)")
-                                .makeRef(),
-                            listOf(consumer)
-                        )
-                    )
-                )
-            }
         }
         v.subunits.filterIsInstance<ClassWithObservable>().forEach { subunit ->
             if (subunit.unitInCallingMethod == null) {
                 println("Not handling $subunit")
                 return@forEach
             }
+
             val stmt = subunit.unitInCallingMethod as Stmt
             assert(stmt.containsInvokeExpr())
+
             val invokeExpr = stmt.invokeExpr as InstanceInvokeExpr
             val instance = invokeExpr.base as Local
             val namePrefix = "${instance.name}_"
 
-            val observable = Jimple.v().newLocal(
-                "${namePrefix}observable",
-                Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
-            )
-            val lambda = Jimple.v().newLocal("${namePrefix}lambda", lambdaClass.type)
-            val consumer = Jimple.v()
-                .newLocal(
-                    "${namePrefix}consumer",
-                    Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type
-                )
-            subscriberBody.locals.addAll(listOf(observable, lambda, consumer))
-            println(subunit.sootClass.fields)
-            val memberObservableField = subunit.sootClass.getField(
+            unitToInstructionsMap[stmt] = createSubscribeMethodInstructions(
+                subunit.sootClass,
                 subunit.observableFieldName,
-                Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+                namePrefix,
+                subscriberBody,
+                lambdaClass,
+                acceptInitMethod,
+                instance
             )
-
-            Jimple.v().apply {
-                unitToInstructionsMap[stmt] = listOf(
-                    newAssignStmt(observable, newInstanceFieldRef(instance, memberObservableField.makeRef())),
-                    newAssignStmt(lambda, newNewExpr(lambdaClass.type)),
-                    newInvokeStmt(
-                        newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(subscriberBody.thisLocal))
-                    ),
-                    newAssignStmt(
-                        consumer,
-                        newCastExpr(lambda, Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
-                    ),
-                    newInvokeStmt(
-                        newVirtualInvokeExpr(
-                            observable, Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
-                                .getMethod("io.reactivex.rxjava3.disposables.Disposable subscribe(io.reactivex.rxjava3.functions.Consumer)")
-                                .makeRef(), listOf(consumer)
-                        )
-                    )
-                )
-            }
         }
 
         subscriberBody.locals.addAll(m.activeBody.locals)
@@ -224,6 +166,53 @@ class TransformVisitor : WorkUnitVisitor {
 
         for (entry in unitToInstructionsMap) {
             subscriberBody.units.insertAfter(entry.value, entry.key)
+        }
+    }
+
+    private fun createSubscribeMethodInstructions(
+        sootClass: SootClass,
+        observableFieldName: String,
+        namePrefix: String,
+        subscriberBody: JimpleBody,
+        lambdaClass: SootClass,
+        acceptInitMethod: SootMethod,
+        instance: Local
+    ): List<Unit> {
+        val observable = Jimple.v().newLocal(
+            "${namePrefix}observable",
+            Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+        )
+        val lambda = Jimple.v().newLocal("${namePrefix}lambda", lambdaClass.type)
+        val consumer = Jimple.v()
+            .newLocal(
+                "${namePrefix}consumer",
+                Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type
+            )
+        subscriberBody.locals.addAll(listOf(observable, lambda, consumer))
+        val memberObservableField = sootClass.getField(
+            observableFieldName,
+            Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+        )
+
+        Jimple.v().apply {
+            return listOf(
+                newAssignStmt(observable, newInstanceFieldRef(instance, memberObservableField.makeRef())),
+                newAssignStmt(lambda, newNewExpr(lambdaClass.type)),
+                newInvokeStmt(
+                    newSpecialInvokeExpr(lambda, acceptInitMethod.makeRef(), listOf(subscriberBody.thisLocal))
+                ),
+                newAssignStmt(
+                    consumer,
+                    newCastExpr(lambda, Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
+                ),
+                newInvokeStmt(
+                    newVirtualInvokeExpr(
+                        observable, Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
+                            .getMethod("io.reactivex.rxjava3.disposables.Disposable subscribe(io.reactivex.rxjava3.functions.Consumer)")
+                            .makeRef(), listOf(consumer)
+                    )
+                )
+            )
         }
     }
 
