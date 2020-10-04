@@ -35,7 +35,8 @@ class TransformVisitor : WorkUnitVisitor {
 
         // Need to create this here because we reference it.
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
-        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), VoidType.v())
+        // FIXME: Parameters should maybe be `m.parameterTypes`. But that would make calling the method harder.
+        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), m.returnType)
         m.declaringClass.addMethod(subscriberMethod)
 
         // TODO: Move lambda class naming to analysis stage
