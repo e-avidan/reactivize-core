@@ -263,6 +263,16 @@ class TransformVisitor : WorkUnitVisitor {
 
     override fun visit(v: FunctionCallingMethod) {
         // FIXME: Do something. But don't throw.
+        val m = v.sootMethod
+        val c = m.declaringClass
+
+        // Need to create this here because we reference it.
+        println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
+        // FIXME: Parameters should maybe be `m.parameterTypes`. But that would make calling the method harder.
+        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), m.returnType)
+        c.addMethod(subscriberMethod)
+
+        subscriberMethod.activeBody = m.activeBody // Make it do the same as the regular method, FIXME.
     }
 
     override fun visit(v: ClassWithObservable) {
