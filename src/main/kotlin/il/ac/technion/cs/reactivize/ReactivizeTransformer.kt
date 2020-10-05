@@ -286,22 +286,34 @@ class TransformVisitor : WorkUnitVisitor {
             method.activeBody = body
             body.insertIdentityStmts()
             Jimple.v().apply {
-                val retLocal = newLocal("ret", method.returnType)
-                body.locals.add(retLocal)
-                body.units.insertAfter(
-                    listOf(
-                        newAssignStmt(
-                            retLocal,
-                            newVirtualInvokeExpr(
-                                body.thisLocal,
-                                v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
+                if (method.returnType != VoidType.v()) {
+                    val retLocal = newLocal("ret", method.returnType)
+                    body.locals.add(retLocal)
+                    body.units.insertAfter(
+                        listOf(
+                            newAssignStmt(
+                                retLocal,
+                                newVirtualInvokeExpr(
+                                    body.thisLocal,
+                                    v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
+                                )
+                            ),
+                            newReturnStmt(retLocal)
+                        ), body.firstNonIdentityStmt
+                    )
+                } else {
+                    body.units.insertAfter(
+                        listOf(
+                            newInvokeStmt(
+                                newVirtualInvokeExpr(
+                                    body.thisLocal,
+                                    v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
+                                )
                             )
-                        ),
-                        newReturnStmt(retLocal)
-                    ), body.firstNonIdentityStmt
-                )
+                        ), body.firstNonIdentityStmt
+                    )
+                }
             }
-
         }
     }
 
