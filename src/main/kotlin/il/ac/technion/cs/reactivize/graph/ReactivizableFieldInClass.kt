@@ -5,7 +5,8 @@ import soot.SootField
 import soot.Unit
 
 class ReactivizableFieldInClass(
-    val sootField: SootField, val sootClass: SootClass,
+    val sootField: SootField,
+    val sootClass: SootClass,
     val unitInCallingMethod: Unit,
     val observerName: String,
     override val subunits: List<WorkUnit>

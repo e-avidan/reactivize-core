@@ -37,20 +37,20 @@ class TransformVisitor : WorkUnitVisitor {
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
         // FIXME: Parameters should maybe be `m.parameterTypes`. But that would make calling the method harder.
         val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), m.returnType)
-        m.declaringClass.addMethod(subscriberMethod)
+        c.addMethod(subscriberMethod)
 
         // TODO: Move lambda class naming to analysis stage
         val lambdaClass =
             SootClass(
-                m.declaringClass.javaPackageName + "." + m.declaringClass.javaStyleName + "$" + m.name + "$" + "reactivize" + "$" + "1",
+                c.javaPackageName + "." + c.javaStyleName + "$" + m.name + "$" + "reactivize" + "$" + "1",
                 Modifier.PUBLIC
             )
         lambdaClass.superclass = Scene.v().getSootClass("java.lang.Object")
         lambdaClass.addInterface(Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer"))
-        lambdaClass.outerClass = m.declaringClass
+        lambdaClass.outerClass = c
         Scene.v().addClass(lambdaClass)
 
-        val outerThisField = SootField("this\$0", m.declaringClass.type)
+        val outerThisField = SootField("this\$0", c.type)
         lambdaClass.addField(outerThisField)
 
         val acceptMethod =
@@ -60,7 +60,7 @@ class TransformVisitor : WorkUnitVisitor {
         acceptMethod.activeBody = acceptBody
         acceptBody.insertIdentityStmts()
 
-        val acceptOuterThis = Jimple.v().newLocal("\$stack1", m.declaringClass.type)
+        val acceptOuterThis = Jimple.v().newLocal("\$stack1", c.type)
         val acceptObservable = Jimple.v().newLocal("\$stack2", observerField.type)
         acceptBody.locals.addAll(listOf(acceptOuterThis, acceptObservable))
         val onNextCall =
@@ -85,7 +85,7 @@ class TransformVisitor : WorkUnitVisitor {
         }
 
 
-        val acceptInitMethod = SootMethod("<init>", listOf(m.declaringClass.type), VoidType.v())
+        val acceptInitMethod = SootMethod("<init>", listOf(c.type), VoidType.v())
         val acceptInitBody = Jimple.v().newBody(acceptInitMethod)
         acceptInitMethod.activeBody = acceptInitBody
         lambdaClass.addMethod(acceptInitMethod)
@@ -158,7 +158,8 @@ class TransformVisitor : WorkUnitVisitor {
                 subscriberBody,
                 lambdaClass,
                 acceptInitMethod,
-                instance
+                instance,
+                subunit.subscriberMethodName
             )
         }
 
@@ -168,6 +169,12 @@ class TransformVisitor : WorkUnitVisitor {
         for (entry in unitToInstructionsMap) {
             subscriberBody.units.insertAfter(entry.value, entry.key)
         }
+
+        println("!!!")
+        println("Handled: $m")
+        println("New method: $subscriberMethod")
+        println(subscriberBody)
+        println("???")
     }
 
     private fun createSubscribeMethodInstructions(
@@ -177,7 +184,8 @@ class TransformVisitor : WorkUnitVisitor {
         subscriberBody: JimpleBody,
         lambdaClass: SootClass,
         acceptInitMethod: SootMethod,
-        instance: Local
+        instance: Local,
+        subscriberMethodName: String? = null
     ): List<Unit> {
         val observable = Jimple.v().newLocal(
             "${namePrefix}observable",
@@ -213,7 +221,14 @@ class TransformVisitor : WorkUnitVisitor {
                             .makeRef(), listOf(consumer)
                     )
                 )
-            )
+            ) + (if (subscriberMethodName != null) listOf(
+                newInvokeStmt(
+                    newVirtualInvokeExpr(
+                        instance,
+                        sootClass.getMethodByName(subscriberMethodName).makeRef()
+                    )
+                )
+            ) else listOf<Unit>())
         }
     }
 
@@ -251,7 +266,33 @@ class TransformVisitor : WorkUnitVisitor {
     }
 
     override fun visit(v: ClassWithObservable) {
-        // Do nothing?
+        // FIXME: ClassWithObservable is useless, merge with ValueMethod
+        if (v.unitInCallingMethod == null) {
+            /* If this is a top-level, i.e. annotated method, replace the method with the subscribe version. */
+            assert(v.subunits.size == 1)
+            val valueMethod = v.subunits[0] as ValueMethod
+            val method = valueMethod.sootMethod
+            val body = Jimple.v().newBody(method)
+            method.activeBody = body
+            body.insertIdentityStmts()
+            Jimple.v().apply {
+                val retLocal = newLocal("ret", method.returnType)
+                body.locals.add(retLocal)
+                body.units.insertAfter(
+                    listOf(
+                        newAssignStmt(
+                            retLocal,
+                            newVirtualInvokeExpr(
+                                body.thisLocal,
+                                v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
+                            )
+                        ),
+                        newReturnStmt(retLocal)
+                    ), body.firstNonIdentityStmt
+                )
+            }
+
+        }
     }
 
     override fun visit(v: ReactivizableFieldInClass) {

@@ -32,7 +32,7 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
 
         return listOf(
             ClassWithObservable(
-                m.declaringClass, callingMethod, unitInCallingMethod, observableName, listOf(
+                m.declaringClass, unitInCallingMethod, observableName, subscriberMethodName, listOf(
                     ValueMethod(
                         m,
                         subscriberMethodName,
@@ -60,8 +60,8 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                 ClassWithObservable(
                     m.declaringClass,
                     null,
-                    null,
                     observableCandidateName,
+                    subscriberMethodName,
                     listOf(
                         ValueMethod(
                             m,
@@ -76,8 +76,8 @@ class ReactivizeAnalyzer(val spec: ReactivizeCompileSpec) {
                 ClassWithObservable(
                     m.declaringClass,
                     null,
-                    null,
-                    "???", // FIXME: This is likely wrong
+                    "???",
+                    subscriberMethodName,
                     listOf(FunctionCallingMethod(m, subscriberMethodName, analyzeMethodInstructions(body, analysis)))
                 )
             }
