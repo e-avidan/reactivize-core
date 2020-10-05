@@ -266,11 +266,11 @@ class TransformVisitor : WorkUnitVisitor {
     }
 
     override fun visit(v: ClassWithObservable) {
-        // FIXME: ClassWithObservable is useless, merge with ValueMethod
+        // FIXME: ClassWithObservable is useless, merge with ReactivizableMethod
         if (v.unitInCallingMethod == null) {
             /* If this is a top-level, i.e. annotated method, replace the method with the subscribe version. */
             assert(v.subunits.size == 1)
-            val valueMethod = v.subunits[0] as ValueMethod
+            val valueMethod = v.subunits[0] as ReactivizableMethod
             val method = valueMethod.sootMethod
             val body = Jimple.v().newBody(method)
             method.activeBody = body
