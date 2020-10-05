@@ -309,7 +309,8 @@ class TransformVisitor : WorkUnitVisitor {
                                     body.thisLocal,
                                     v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
                                 )
-                            )
+                            ),
+                            newReturnVoidStmt()
                         ), body.firstNonIdentityStmt
                     )
                 }
