@@ -332,25 +332,17 @@ class TransformVisitor : WorkUnitVisitor {
 
         /* Initialize the observable */
         val initBody = v.sootClass.getMethodByName("<init>").activeBody as JimpleBody
-        val fieldLocal =
-            Jimple.v().newLocal("currentField", v.sootField.type)
-        initBody.locals.add(fieldLocal)
         val observableLocal =
             Jimple.v().newLocal("observableTemp", RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
         initBody.locals.add(observableLocal)
         val observableCall = Scene.v()
-            .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject createDefault(java.lang.Object)>")
+            .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject create()>")
         initBody.units.insertBefore(
             listOf(
                 Jimple.v()
                     .newAssignStmt(
-                        fieldLocal,
-                        Jimple.v().newInstanceFieldRef(initBody.thisLocal, v.sootField.makeRef())
-                    ),
-                Jimple.v()
-                    .newAssignStmt(
                         observableLocal,
-                        Jimple.v().newStaticInvokeExpr(observableCall.makeRef(), fieldLocal)
+                        Jimple.v().newStaticInvokeExpr(observableCall.makeRef())
                     ),
                 Jimple.v()
                     .newAssignStmt(
