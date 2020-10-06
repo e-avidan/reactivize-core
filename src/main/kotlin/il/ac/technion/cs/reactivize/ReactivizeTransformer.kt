@@ -368,30 +368,27 @@ class TransformVisitor : WorkUnitVisitor {
         val onNextCall =
             Scene.v().getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: void onNext(java.lang.Object)>")
 
-        val firstNonAssign = oldSetterBody.units.indexOfFirst { it !is AssignStmt && it !is IdentityStmt }
-        println("firstNonAssign: $firstNonAssign")
-        println(oldSetterBody.units.map { "$it|${it.javaClass}" })
-        newSetterBody.units.addAll(oldSetterBody.units.toList().slice(0 until firstNonAssign))
 
-        newSetterBody.units.add(
-            Jimple.v().newAssignStmt(
-                setterObservableLocal,
-                Jimple.v().newInstanceFieldRef(newSetterBody.thisLocal, observerField.makeRef())
+        newSetterBody.units.addAll(oldSetterBody.units)
+        Jimple.v().apply {
+            newSetterBody.units.insertAfter(
+                listOf(
+                    newAssignStmt(
+                        setterObservableLocal, newInstanceFieldRef(newSetterBody.thisLocal, observerField.makeRef())
+                    ),
+                    newInvokeStmt(
+                        newVirtualInvokeExpr(
+                            setterObservableLocal,
+                            onNextCall.makeRef(),
+                            newSetterBody.parameterLocals[0]
+                        )
+                    )
+                ), newSetterBody.firstNonIdentityStmt
             )
-        )
-        newSetterBody.units.add(
-            Jimple.v().newInvokeStmt(
-                Jimple.v()
-                    .newVirtualInvokeExpr(setterObservableLocal, onNextCall.makeRef(), newSetterBody.locals.first)
-            )
-        )
-        newSetterBody.units.addAll(
-            oldSetterBody.units.toList().slice(firstNonAssign until oldSetterBody.units.size)
-        )
+        }
         oldSetterBody.method.activeBody = newSetterBody
         newSetterBody.validate()
     }
-
 }
 
 open class MyBackwardFlowAnalysis(cfg: UnitGraph) : BackwardFlowAnalysis<Unit, MutableSet<Local>>(cfg) {
