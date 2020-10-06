@@ -84,7 +84,7 @@ class TransformVisitor : WorkUnitVisitor {
                 )
             )
         }
-
+        acceptBody.validate()
 
         val acceptInitMethod = SootMethod("<init>", listOf(c.type), VoidType.v())
         val acceptInitBody = Jimple.v().newBody(acceptInitMethod)
@@ -109,11 +109,13 @@ class TransformVisitor : WorkUnitVisitor {
                 ), acceptInitBody.firstNonIdentityStmt
             )
         }
-
+        acceptInitBody.validate()
 
         val subscriberBody = Jimple.v().newBody(subscriberMethod)
         subscriberMethod.activeBody = subscriberBody
-        subscriberBody.insertIdentityStmts()
+
+        subscriberBody.locals.addAll(m.activeBody.locals)
+        subscriberBody.units.addAll(m.activeBody.units)
 
         val unitToInstructionsMap: MutableMap<Unit, List<Unit>> = mutableMapOf()
 
@@ -164,9 +166,6 @@ class TransformVisitor : WorkUnitVisitor {
             )
         }
 
-        subscriberBody.locals.addAll(m.activeBody.locals)
-        subscriberBody.units.addAll(m.activeBody.units)
-
         for (entry in unitToInstructionsMap) {
             subscriberBody.units.insertAfter(entry.value, entry.key)
         }
@@ -175,8 +174,8 @@ class TransformVisitor : WorkUnitVisitor {
         println("Handled: $m")
         println("New method: $subscriberMethod")
         println(subscriberBody)
-        println(subscriberMethod.activeBody)
         println("???")
+        subscriberBody.validate()
     }
 
     private fun createSubscribeMethodInstructions(
@@ -253,13 +252,14 @@ class TransformVisitor : WorkUnitVisitor {
 
         // Update the ctor
         Jimple.v().apply {
-            initBody.units.insertAfter(
+            initBody.units.insertBefore(
                 listOf(
                     newAssignStmt(observableLocal, newStaticInvokeExpr(observableCall.makeRef())),
                     newAssignStmt(newInstanceFieldRef(initBody.thisLocal, f.makeRef()), observableLocal)
                 ), initBody.firstNonIdentityStmt
             )
         }
+        // initBody.validate() // Kotlin generates code in ctors it doesn't like.
 
         return f
     }
@@ -319,6 +319,7 @@ class TransformVisitor : WorkUnitVisitor {
                     )
                 }
             }
+            body.validate()
         }
     }
 
@@ -338,7 +339,7 @@ class TransformVisitor : WorkUnitVisitor {
         initBody.locals.add(observableLocal)
         val observableCall = Scene.v()
             .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject createDefault(java.lang.Object)>")
-        initBody.units.insertAfter(
+        initBody.units.insertBefore(
             listOf(
                 Jimple.v()
                     .newAssignStmt(
@@ -357,6 +358,7 @@ class TransformVisitor : WorkUnitVisitor {
                     )
             ), initBody.firstNonIdentityStmt // insert first to avoid understanding control flow
         )
+        // initBody.validate() // Kotlin generates code this doesn't like.
 
         /* Call onNext on the observable in the setter (which we assume exists and is used) */
         val oldSetterBody =
@@ -390,6 +392,7 @@ class TransformVisitor : WorkUnitVisitor {
             oldSetterBody.units.toList().slice(firstNonAssign until oldSetterBody.units.size)
         )
         oldSetterBody.method.activeBody = newSetterBody
+        newSetterBody.validate()
     }
 
 }
