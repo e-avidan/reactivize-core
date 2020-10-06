@@ -30,7 +30,8 @@ class TransformVisitor : WorkUnitVisitor {
             v.observableName,
             Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
         ) ?: createValueMethodObserverField(v)
-
+        // Do I need this? It's supposedly public...
+        observerField.modifiers = Modifier.PUBLIC
 
         // Need to create this here because we reference it.
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
