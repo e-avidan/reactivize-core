@@ -93,7 +93,7 @@ class TransformVisitor : WorkUnitVisitor {
 
         acceptInitBody.insertIdentityStmts()
         Jimple.v().apply {
-            acceptInitBody.units.insertAfter(
+            acceptInitBody.units.insertBefore(
                 listOf(
                     newAssignStmt(
                         newInstanceFieldRef(acceptInitBody.thisLocal, outerThisField.makeRef()),
@@ -294,7 +294,7 @@ class TransformVisitor : WorkUnitVisitor {
                 if (method.returnType != VoidType.v()) {
                     val retLocal = newLocal("ret", method.returnType)
                     body.locals.add(retLocal)
-                    body.units.insertAfter(
+                    body.units.insertBefore(
                         listOf(
                             newAssignStmt(
                                 retLocal,
@@ -307,7 +307,7 @@ class TransformVisitor : WorkUnitVisitor {
                         ), body.firstNonIdentityStmt
                     )
                 } else {
-                    body.units.insertAfter(
+                    body.units.insertBefore(
                         listOf(
                             newInvokeStmt(
                                 newVirtualInvokeExpr(
