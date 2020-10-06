@@ -11,18 +11,17 @@ class ReactivizeTransformer(val spec: ReactivizeCompileSpec) {
     private val visitor = TransformVisitor()
 
     fun transform(graph: List<WorkUnit>): Iterable<SootClass> {
-        return graph.flatMap {
+        graph.forEach {
             val ret = transform(it.subunits)
             it.accept(visitor)
-            if (it is ClassWithObservable)
-                ret + listOf(it.sootClass)
-            else
-                ret
         }
+        return visitor.modifiedClasses
     }
 }
 
 class TransformVisitor : WorkUnitVisitor {
+    val modifiedClasses: MutableSet<SootClass> = mutableSetOf()
+
     override fun visit(v: ValueMethod) {
         val m = v.sootMethod
         val c = m.declaringClass
@@ -38,6 +37,7 @@ class TransformVisitor : WorkUnitVisitor {
         // FIXME: Parameters should maybe be `m.parameterTypes`. But that would make calling the method harder.
         val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), m.returnType)
         c.addMethod(subscriberMethod)
+        modifiedClasses.add(c)
 
         // TODO: Move lambda class naming to analysis stage
         val lambdaClass =
@@ -45,6 +45,7 @@ class TransformVisitor : WorkUnitVisitor {
                 c.javaPackageName + "." + c.javaStyleName + "$" + m.name + "$" + "reactivize" + "$" + "1",
                 Modifier.PUBLIC
             )
+        modifiedClasses.add(lambdaClass)
         lambdaClass.superclass = Scene.v().getSootClass("java.lang.Object")
         lambdaClass.addInterface(Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer"))
         lambdaClass.outerClass = c
@@ -174,6 +175,7 @@ class TransformVisitor : WorkUnitVisitor {
         println("Handled: $m")
         println("New method: $subscriberMethod")
         println(subscriberBody)
+        println(subscriberMethod.activeBody)
         println("???")
     }
 
@@ -238,6 +240,7 @@ class TransformVisitor : WorkUnitVisitor {
 
         val f = SootField(v.observableName, RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
         c.addField(f)
+        modifiedClasses.add(c)
 
         // Initialize the observable
         val namePrefix = "${v.observableName}_"
@@ -265,6 +268,7 @@ class TransformVisitor : WorkUnitVisitor {
         // FIXME: Do something. But don't throw.
         val m = v.sootMethod
         val c = m.declaringClass
+        modifiedClasses.add(c)
 
         // Need to create this here because we reference it.
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
@@ -322,6 +326,7 @@ class TransformVisitor : WorkUnitVisitor {
         val observerField =
             SootField(v.observerName, RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
         v.sootClass.addField(observerField)
+        modifiedClasses.add(v.sootClass)
 
         /* Initialize the observable */
         val initBody = v.sootClass.getMethodByName("<init>").activeBody as JimpleBody
