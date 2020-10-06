@@ -259,7 +259,8 @@ class TransformVisitor : WorkUnitVisitor {
                 ), initBody.firstNonIdentityStmt
             )
         }
-        // initBody.validate() // Kotlin generates code in ctors it doesn't like.
+        initBody.fixLateIdentityStatements()
+        initBody.validate() // Kotlin generates code in ctors it doesn't like.
 
         return f
     }
@@ -358,7 +359,8 @@ class TransformVisitor : WorkUnitVisitor {
                     )
             ), initBody.firstNonIdentityStmt // insert first to avoid understanding control flow
         )
-        // initBody.validate() // Kotlin generates code this doesn't like.
+        initBody.fixLateIdentityStatements()
+        initBody.validate() // Kotlin generates code this doesn't like.
 
         /* Call onNext on the observable in the setter (which we assume exists and is used) */
         val oldSetterBody =
@@ -451,5 +453,12 @@ open class MyBackwardFlowAnalysis(cfg: UnitGraph) : BackwardFlowAnalysis<Unit, M
         }
 
         println("d: $d in: $input out: $out")
+    }
+}
+
+fun JimpleBody.fixLateIdentityStatements() {
+    units.dropWhile { it != firstNonIdentityStmt }.filterIsInstance<IdentityStmt>().forEach {
+        units.remove(it)
+        units.insertBefore(it, firstNonIdentityStmt)
     }
 }
