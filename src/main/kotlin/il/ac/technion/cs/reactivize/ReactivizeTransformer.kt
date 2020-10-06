@@ -238,7 +238,8 @@ class TransformVisitor : WorkUnitVisitor {
         val m = v.sootMethod
         val c = m.declaringClass
 
-        val f = SootField(v.observableName, RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
+        // FIXME: Add a getter for the field instead of making it public
+        val f = SootField(v.observableName, RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"), Modifier.PUBLIC)
         c.addField(f)
         modifiedClasses.add(c)
 
