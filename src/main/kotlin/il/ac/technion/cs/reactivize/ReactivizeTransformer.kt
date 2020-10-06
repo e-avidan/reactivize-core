@@ -35,7 +35,7 @@ class TransformVisitor : WorkUnitVisitor {
         // Need to create this here because we reference it.
         println("creating method subscriberMethodName = '${v.subscriberMethodName}'")
         // FIXME: Parameters should maybe be `m.parameterTypes`. But that would make calling the method harder.
-        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), m.returnType)
+        val subscriberMethod = SootMethod(v.subscriberMethodName, listOf(), m.returnType, Modifier.PUBLIC)
         c.addMethod(subscriberMethod)
         modifiedClasses.add(c)
 
