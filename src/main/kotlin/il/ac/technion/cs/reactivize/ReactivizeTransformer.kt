@@ -69,6 +69,39 @@ class TransformVisitor : WorkUnitVisitor {
         val onNextCall =
             Scene.v().getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: void onNext(java.lang.Object)>")
 
+        // TODO/FIXME: Box all primitive types, not just Double.
+        val onNextInvocation = if (m.returnType == DoubleType.v()) {
+            val boxLocal = Jimple.v().newLocal("box", Scene.v().getType("java.lang.Double"))
+            acceptBody.locals.add(boxLocal)
+            listOf(
+                Jimple.v().newAssignStmt(boxLocal, Jimple.v().newNewExpr(Scene.v().getRefType("java.lang.Double"))),
+                Jimple.v().newInvokeStmt(
+                    Jimple.v().newVirtualInvokeExpr(
+                        boxLocal,
+                        Scene.v().getSootClass("java.lang.Double").getMethod("<init>", listOf(DoubleType.v()))
+                            .makeRef(),
+                        acceptGetterResult
+                    )
+                ),
+                Jimple.v().newInvokeStmt(
+                    Jimple.v().newVirtualInvokeExpr(
+                        acceptObservable,
+                        onNextCall.makeRef(),
+                        boxLocal
+                    )
+                )
+            )
+        } else {
+            listOf(
+                Jimple.v().newInvokeStmt(
+                    Jimple.v().newVirtualInvokeExpr(
+                        acceptObservable,
+                        onNextCall.makeRef(),
+                        acceptGetterResult
+                    )
+                )
+            )
+        }
 
         Jimple.v().apply {
             acceptBody.units.addAll(
@@ -78,21 +111,11 @@ class TransformVisitor : WorkUnitVisitor {
                     /* FIXME: This is a cop-out, calling the getter to get a value isn't reactive. We need to create a
                      *   different accept lambda for each observer, and use code from the getter to convert the value
                      *   that was obtained in the reactive path (i.e., the parameter) to the final type. */
-                    newAssignStmt(acceptGetterResult, newVirtualInvokeExpr(acceptOuterThis, m.makeRef())),
-                    newAssignStmt(
-                        newInstanceFieldRef(acceptBody.thisLocal, outerThisField.makeRef()),
-                        acceptOuterThis
-                    ), // Maybe a no-op will make Jimple generate verifiable bytecode?
-                    newInvokeStmt(
-                        newVirtualInvokeExpr(
-                            acceptObservable,
-                            onNextCall.makeRef(),
-                            acceptGetterResult
-                        )
-                    ),
-                    newReturnVoidStmt()
+                    newAssignStmt(acceptGetterResult, newVirtualInvokeExpr(acceptOuterThis, m.makeRef()))
                 )
             )
+            acceptBody.units.addAll(onNextInvocation)
+            acceptBody.units.add(Jimple.v().newReturnVoidStmt())
         }
         acceptBody.validate()
 
