@@ -76,7 +76,7 @@ class TransformVisitor : WorkUnitVisitor {
             listOf(
                 Jimple.v().newAssignStmt(boxLocal, Jimple.v().newNewExpr(Scene.v().getRefType("java.lang.Double"))),
                 Jimple.v().newInvokeStmt(
-                    Jimple.v().newVirtualInvokeExpr(
+                    Jimple.v().newSpecialInvokeExpr(
                         boxLocal,
                         Scene.v().getSootClass("java.lang.Double").getMethod("<init>", listOf(DoubleType.v()))
                             .makeRef(),
