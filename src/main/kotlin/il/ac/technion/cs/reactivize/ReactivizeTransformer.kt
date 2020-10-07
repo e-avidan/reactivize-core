@@ -78,7 +78,7 @@ class TransformVisitor : WorkUnitVisitor {
                     /* FIXME: This is a cop-out, calling the getter to get a value isn't reactive. We need to create a
                      *   different accept lambda for each observer, and use code from the getter to convert the value
                      *   that was obtained in the reactive path (i.e., the parameter) to the final type. */
-                    newAssignStmt(acceptGetterResult, newVirtualInvokeExpr(acceptBody.thisLocal, m.makeRef())),
+                    newAssignStmt(acceptGetterResult, newVirtualInvokeExpr(acceptOuterThis, m.makeRef())),
                     newInvokeStmt(
                         newVirtualInvokeExpr(
                             acceptObservable,
