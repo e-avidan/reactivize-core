@@ -79,13 +79,13 @@ class TransformVisitor : WorkUnitVisitor {
                      *   different accept lambda for each observer, and use code from the getter to convert the value
                      *   that was obtained in the reactive path (i.e., the parameter) to the final type. */
                     newAssignStmt(acceptGetterResult, newVirtualInvokeExpr(acceptOuterThis, m.makeRef())),
-                    newInvokeStmt(
+                    /* newInvokeStmt(
                         newVirtualInvokeExpr(
                             acceptObservable,
                             onNextCall.makeRef(),
                             acceptGetterResult
                         )
-                    ),
+                    ), */
                     newReturnVoidStmt()
                 )
             )
