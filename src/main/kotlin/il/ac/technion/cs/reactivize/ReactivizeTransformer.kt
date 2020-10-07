@@ -30,7 +30,7 @@ class TransformVisitor : WorkUnitVisitor {
             v.observableName,
             Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
         ) ?: createValueMethodObserverField(v)
-        // Do I need this? It's supposedly public...
+        // Do I need this? It's supposedly public... Maybe use the getter instead.
         observerField.modifiers = Modifier.PUBLIC
 
         // Need to create this here because we reference it.
@@ -64,7 +64,8 @@ class TransformVisitor : WorkUnitVisitor {
 
         val acceptOuterThis = Jimple.v().newLocal("\$stack1", c.type)
         val acceptObservable = Jimple.v().newLocal("\$stack2", observerField.type)
-        acceptBody.locals.addAll(listOf(acceptOuterThis, acceptObservable))
+        val acceptGetterResult = Jimple.v().newLocal("\$stack3", m.returnType)
+        acceptBody.locals.addAll(listOf(acceptOuterThis, acceptObservable, acceptGetterResult))
         val onNextCall =
             Scene.v().getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: void onNext(java.lang.Object)>")
 
@@ -74,11 +75,15 @@ class TransformVisitor : WorkUnitVisitor {
                 listOf(
                     newAssignStmt(acceptOuterThis, newInstanceFieldRef(acceptBody.thisLocal, outerThisField.makeRef())),
                     newAssignStmt(acceptObservable, newInstanceFieldRef(acceptOuterThis, observerField.makeRef())),
+                    /* FIXME: This is a cop-out, calling the getter to get a value isn't reactive. We need to create a
+                     *   different accept lambda for each observer, and use code from the getter to convert the value
+                     *   that was obtained in the reactive path (i.e., the parameter) to the final type. */
+                    newAssignStmt(acceptGetterResult, newVirtualInvokeExpr(acceptBody.thisLocal, m.makeRef())),
                     newInvokeStmt(
                         newVirtualInvokeExpr(
                             acceptObservable,
                             onNextCall.makeRef(),
-                            acceptBody.parameterLocals[0]
+                            acceptGetterResult
                         )
                     ),
                     newReturnVoidStmt()
@@ -358,8 +363,8 @@ class TransformVisitor : WorkUnitVisitor {
         initBody.validate() // Kotlin generates code this doesn't like.
 
         /* Call onNext on the observable in the setter (which we assume exists and is used) */
-        val oldSetterBody =
-            v.sootClass.getMethod("set" + v.sootField.name.capitalize(), listOf(v.sootField.type)).activeBody
+        val setterMethod = v.sootClass.getMethod("set" + v.sootField.name.capitalize(), listOf(v.sootField.type))
+        val oldSetterBody = setterMethod.activeBody as JimpleBody
         val newSetterBody = Jimple.v().newBody(oldSetterBody.method)
         val setterObservableLocal =
             Jimple.v().newLocal("observable", RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
@@ -367,6 +372,8 @@ class TransformVisitor : WorkUnitVisitor {
         newSetterBody.locals.add(setterObservableLocal)
         val onNextCall =
             Scene.v().getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: void onNext(java.lang.Object)>")
+
+        println("Calling onNext; method is $setterMethod, observer is $observerField")
 
 
         newSetterBody.units.addAll(oldSetterBody.units)
