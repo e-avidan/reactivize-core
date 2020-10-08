@@ -220,7 +220,7 @@ class TransformVisitor : WorkUnitVisitor {
     ): List<Unit> {
         val observable = Jimple.v().newLocal(
             "${namePrefix}observable",
-            Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+            Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable").type
         )
         val lambda = Jimple.v().newLocal("${namePrefix}lambda", lambdaClass.type)
         val consumer = Jimple.v()
@@ -244,6 +244,15 @@ class TransformVisitor : WorkUnitVisitor {
                 newAssignStmt(
                     consumer,
                     newCastExpr(lambda, Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
+                ),
+                newAssignStmt(
+                    observable,
+                    newVirtualInvokeExpr(
+                        observable,
+                        Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
+                            .getMethod("take", listOf(LongType.v())).makeRef(),
+                        listOf(LongConstant.v(1))
+                    )
                 ),
                 newInvokeStmt(
                     newVirtualInvokeExpr(
