@@ -12,7 +12,7 @@ class ReactivizeTransformer(val spec: ReactivizeCompileSpec) {
 
     fun transform(graph: List<WorkUnit>): Iterable<SootClass> {
         graph.forEach {
-            val ret = transform(it.subunits)
+            transform(it.subunits)
             it.accept(visitor)
         }
         return visitor.modifiedClasses
@@ -154,10 +154,6 @@ class TransformVisitor : WorkUnitVisitor {
         val unitToInstructionsMap: MutableMap<Unit, List<Unit>> = mutableMapOf()
 
         v.subunits.filterIsInstance<ReactivizableFieldInClass>().forEach { field ->
-            if (field.unitInCallingMethod == null) {
-                println("Not handling $field")
-                return@forEach
-            }
             val stmt = field.unitInCallingMethod as Stmt
             assert(stmt.containsFieldRef())
 
@@ -295,7 +291,7 @@ class TransformVisitor : WorkUnitVisitor {
             )
         }
         initBody.fixLateIdentityStatements()
-        initBody.validate() // Kotlin generates code in ctors it doesn't like.
+        initBody.validate()
 
         return f
     }
@@ -319,17 +315,29 @@ class TransformVisitor : WorkUnitVisitor {
         // FIXME: ClassWithObservable is useless, merge with ReactivizableMethod
         if (v.unitInCallingMethod == null) {
             /* If this is a top-level, i.e. annotated method, replace the method with the subscribe version. */
+            val stopRecursionField =
+                SootField("stopRecursionField\$reactivize", BooleanType.v(), Modifier.PUBLIC or Modifier.STATIC)
+            v.sootClass.addField(stopRecursionField)
+
             assert(v.subunits.size == 1)
             val valueMethod = v.subunits[0] as ReactivizableMethod
             val method = valueMethod.sootMethod
-            val body = Jimple.v().newBody(method)
-            method.activeBody = body
-            body.insertIdentityStmts()
+            val body = method.activeBody as JimpleBody
+            val firstUnit = body.firstNonIdentityStmt
+            val stopRecursionLocal = Jimple.v().newLocal("stopRecursion", stopRecursionField.type)
+            body.locals.add(stopRecursionLocal)
             Jimple.v().apply {
+                body.units.insertBefore(
+                    listOf(
+                        newAssignStmt(stopRecursionLocal, newStaticFieldRef(stopRecursionField.makeRef())),
+                        newIfStmt(newEqExpr(stopRecursionLocal, IntConstant.v(1)), firstUnit),
+                        newAssignStmt(newStaticFieldRef(stopRecursionField.makeRef()), IntConstant.v(1))
+                    ), firstUnit
+                )
                 if (method.returnType != VoidType.v()) {
                     val retLocal = newLocal("ret", method.returnType)
                     body.locals.add(retLocal)
-                    body.units.addAll(
+                    body.units.insertBefore(
                         listOf(
                             newAssignStmt(
                                 retLocal,
@@ -338,8 +346,9 @@ class TransformVisitor : WorkUnitVisitor {
                                     v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
                                 )
                             ),
+                            newAssignStmt(newStaticFieldRef(stopRecursionField.makeRef()), IntConstant.v(0)),
                             newReturnStmt(retLocal)
-                        )
+                        ), firstUnit
                     )
                 } else {
                     body.units.insertBefore(
@@ -350,8 +359,9 @@ class TransformVisitor : WorkUnitVisitor {
                                     v.sootClass.getMethodByName(v.subscriberMethodName).makeRef()
                                 )
                             ),
+                            newAssignStmt(newStaticFieldRef(stopRecursionField.makeRef()), IntConstant.v(0)),
                             newReturnVoidStmt()
-                        ), body.firstNonIdentityStmt
+                        ), firstUnit
                     )
                 }
             }
