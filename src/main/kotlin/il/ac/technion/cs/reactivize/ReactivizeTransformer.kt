@@ -326,11 +326,12 @@ class TransformVisitor : WorkUnitVisitor {
             val firstUnit = body.firstNonIdentityStmt
             val stopRecursionLocal = Jimple.v().newLocal("stopRecursion", stopRecursionField.type)
             body.locals.add(stopRecursionLocal)
+            val firstUnitBox = Jimple.v().newStmtBox(firstUnit)
             Jimple.v().apply {
                 body.units.insertBefore(
                     listOf(
                         newAssignStmt(stopRecursionLocal, newStaticFieldRef(stopRecursionField.makeRef())),
-                        newIfStmt(newEqExpr(stopRecursionLocal, IntConstant.v(1)), firstUnit),
+                        newIfStmt(newEqExpr(stopRecursionLocal, IntConstant.v(1)), firstUnitBox),
                         newAssignStmt(newStaticFieldRef(stopRecursionField.makeRef()), IntConstant.v(1))
                     ), firstUnit
                 )
