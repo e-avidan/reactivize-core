@@ -326,7 +326,7 @@ class TransformVisitor : WorkUnitVisitor {
             val firstUnit = body.firstNonIdentityStmt
             val stopRecursionLocal = Jimple.v().newLocal("stopRecursion", stopRecursionField.type)
             body.locals.add(stopRecursionLocal)
-            val firstUnitBox = Jimple.v().newStmtBox(firstUnit)
+            val firstUnitBox = Jimple.v().newStmtBox(Jimple.v().newNopStmt())
             Jimple.v().apply {
                 body.units.insertBefore(
                     listOf(
@@ -366,6 +366,7 @@ class TransformVisitor : WorkUnitVisitor {
                     )
                 }
             }
+            firstUnitBox.unit = firstUnit // Doing it *here* triggers Jimple to back-patch.
             body.validate()
         }
     }
