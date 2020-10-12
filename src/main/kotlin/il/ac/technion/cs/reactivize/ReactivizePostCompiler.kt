@@ -9,7 +9,8 @@ import java.io.FileOutputStream
 
 val REQUIRED_CLASS_NAMES = listOf(
     "io.reactivex.rxjava3.subjects.BehaviorSubject",
-    "il.ac.technion.cs.reactivize.api.TransformedMarker"
+    "il.ac.technion.cs.reactivize.api.TransformedMarker",
+    "il.ac.technion.cs.reactivize.helpers.DisposableStore"
 )
 
 class ReactivizePostCompiler {

@@ -218,6 +218,12 @@ class TransformVisitor : WorkUnitVisitor {
         instance: Local,
         subscriberMethodName: String? = null
     ): List<Unit> {
+        val disposableHelper = Scene.v().getSootClass("il.ac.technion.cs.reactivize.helpers.DisposableStore")
+        val disposableField = SootField("$observableFieldName\$reactivize\$disposable", disposableHelper.type)
+        println(disposableHelper.methods)
+        println("${disposableHelper.name}: ${disposableHelper.fields}")
+        addFieldToClass(sootClass, disposableHelper.getMethod("create", listOf()), disposableField)
+
         val observable = Jimple.v().newLocal(
             "${namePrefix}observable",
             Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable").type
@@ -226,12 +232,15 @@ class TransformVisitor : WorkUnitVisitor {
         val consumer = Jimple.v()
             .newLocal(
                 "${namePrefix}consumer",
-                Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type
+                Scene.v().getType("io.reactivex.rxjava3.functions.Consumer")
             )
-        subscriberBody.locals.addAll(listOf(observable, lambda, consumer))
+        val disposable = Jimple.v()
+            .newLocal("${namePrefix}disposable", Scene.v().getType("io.reactivex.rxjava3.disposables.Disposable"))
+        val disposableHelperLocal = Jimple.v().newLocal("${namePrefix}disposableHelper", disposableHelper.type)
+        subscriberBody.locals.addAll(listOf(observable, lambda, consumer, disposable, disposableHelperLocal))
         val memberObservableField = sootClass.getField(
             observableFieldName,
-            Scene.v().getSootClass("io.reactivex.rxjava3.subjects.BehaviorSubject").type
+            Scene.v().getType("io.reactivex.rxjava3.subjects.BehaviorSubject")
         )
 
         Jimple.v().apply {
@@ -245,20 +254,33 @@ class TransformVisitor : WorkUnitVisitor {
                     consumer,
                     newCastExpr(lambda, Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
                 ),
+                // FIXME: This is a crutch.
                 newAssignStmt(
                     observable,
                     newVirtualInvokeExpr(
                         observable,
                         Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
                             .getMethod("take", listOf(LongType.v())).makeRef(),
-                        listOf(LongConstant.v(3))
+                        listOf(LongConstant.v(5))
                     )
                 ),
-                newInvokeStmt(
+                newAssignStmt(
+                    disposable,
                     newVirtualInvokeExpr(
                         observable, Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
                             .getMethod("io.reactivex.rxjava3.disposables.Disposable subscribe(io.reactivex.rxjava3.functions.Consumer)")
                             .makeRef(), listOf(consumer)
+                    )
+                ),
+                newAssignStmt(
+                    disposableHelperLocal,
+                    newInstanceFieldRef(subscriberBody.thisLocal, disposableField.makeRef())
+                ),
+                newInvokeStmt(
+                    newVirtualInvokeExpr(
+                        disposableHelperLocal,
+                        disposableHelper.getMethodByName("setDisposable").makeRef(),
+                        disposable
                     )
                 )
             ) + (if (subscriberMethodName != null) listOf(
@@ -278,29 +300,12 @@ class TransformVisitor : WorkUnitVisitor {
 
         // FIXME: Add a getter for the field instead of making it public
         val f = SootField(v.observableName, RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"), Modifier.PUBLIC)
-        c.addField(f)
-        modifiedClasses.add(c)
-
-        // Initialize the observable
-        val namePrefix = "${v.observableName}_"
-        val initBody = c.getMethodByName("<init>").activeBody as JimpleBody
-        val observableLocal = Jimple.v()
-            .newLocal("${namePrefix}observableTemp", RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
-        val observableCall = Scene.v()
-            .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject create()>")
-        initBody.locals.add(observableLocal)
-
-        // Update the ctor
-        Jimple.v().apply {
-            initBody.units.insertBefore(
-                listOf(
-                    newAssignStmt(observableLocal, newStaticInvokeExpr(observableCall.makeRef())),
-                    newAssignStmt(newInstanceFieldRef(initBody.thisLocal, f.makeRef()), observableLocal)
-                ), initBody.firstNonIdentityStmt
-            )
-        }
-        initBody.fixLateIdentityStatements()
-        initBody.validate()
+        addFieldToClass(
+            c,
+            Scene.v()
+                .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject create()>"),
+            f
+        )
 
         return f
     }
@@ -381,34 +386,15 @@ class TransformVisitor : WorkUnitVisitor {
     }
 
     override fun visit(v: ReactivizableFieldInClass) {
+        /* Create and initialize a field for the observable. */
         val observerField =
             SootField(v.observerName, RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
-        v.sootClass.addField(observerField)
-        modifiedClasses.add(v.sootClass)
-
-        /* Initialize the observable */
-        val initBody = v.sootClass.getMethodByName("<init>").activeBody as JimpleBody
-        val observableLocal =
-            Jimple.v().newLocal("observableTemp", RefType.v("io.reactivex.rxjava3.subjects.BehaviorSubject"))
-        initBody.locals.add(observableLocal)
-        val observableCall = Scene.v()
-            .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject create()>")
-        initBody.units.insertBefore(
-            listOf(
-                Jimple.v()
-                    .newAssignStmt(
-                        observableLocal,
-                        Jimple.v().newStaticInvokeExpr(observableCall.makeRef())
-                    ),
-                Jimple.v()
-                    .newAssignStmt(
-                        Jimple.v().newInstanceFieldRef(initBody.thisLocal, observerField.makeRef()),
-                        observableLocal
-                    )
-            ), initBody.firstNonIdentityStmt // insert first to avoid understanding control flow
+        addFieldToClass(
+            v.sootClass,
+            Scene.v()
+                .getMethod("<io.reactivex.rxjava3.subjects.BehaviorSubject: io.reactivex.rxjava3.subjects.BehaviorSubject create()>"),
+            observerField
         )
-        initBody.fixLateIdentityStatements()
-        initBody.validate() // Kotlin generates code this doesn't like.
 
         /* Call onNext on the observable in the setter (which we assume exists and is used) */
         val setterMethod = v.sootClass.getMethod("set" + v.sootField.name.capitalize(), listOf(v.sootField.type))
@@ -443,6 +429,30 @@ class TransformVisitor : WorkUnitVisitor {
         }
         oldSetterBody.method.activeBody = newSetterBody
         newSetterBody.validate()
+    }
+
+    private fun addFieldToClass(sootClass: SootClass, parameterlessBuilderMethod: SootMethod, field: SootField) {
+        sootClass.addField(field)
+        modifiedClasses.add(sootClass)
+
+        // Grab parameters
+        val namePrefix = "${field.name}_"
+        val initBody = sootClass.getMethodByName("<init>").activeBody as JimpleBody
+        val tempLocal = Jimple.v()
+            .newLocal("${namePrefix}temp", parameterlessBuilderMethod.returnType)
+        initBody.locals.add(tempLocal)
+
+        // Update the ctor
+        Jimple.v().apply {
+            initBody.units.insertBefore(
+                listOf(
+                    newAssignStmt(tempLocal, newStaticInvokeExpr(parameterlessBuilderMethod.makeRef())),
+                    newAssignStmt(newInstanceFieldRef(initBody.thisLocal, field.makeRef()), tempLocal)
+                ), initBody.firstNonIdentityStmt
+            )
+        }
+        initBody.fixLateIdentityStatements()
+        initBody.validate()
     }
 }
 
