@@ -251,7 +251,7 @@ class TransformVisitor : WorkUnitVisitor {
                         observable,
                         Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
                             .getMethod("take", listOf(LongType.v())).makeRef(),
-                        listOf(LongConstant.v(1))
+                        listOf(LongConstant.v(3))
                     )
                 ),
                 newInvokeStmt(
