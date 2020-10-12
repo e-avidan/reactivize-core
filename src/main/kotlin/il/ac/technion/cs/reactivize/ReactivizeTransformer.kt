@@ -256,16 +256,6 @@ class TransformVisitor : WorkUnitVisitor {
                     consumer,
                     newCastExpr(lambda, Scene.v().getSootClass("io.reactivex.rxjava3.functions.Consumer").type)
                 ),
-                // FIXME: This is a crutch.
-                newAssignStmt(
-                    observable,
-                    newVirtualInvokeExpr(
-                        observable,
-                        Scene.v().getSootClass("io.reactivex.rxjava3.core.Observable")
-                            .getMethod("take", listOf(LongType.v())).makeRef(),
-                        listOf(LongConstant.v(5))
-                    )
-                ),
                 newAssignStmt(
                     disposable,
                     newVirtualInvokeExpr(
