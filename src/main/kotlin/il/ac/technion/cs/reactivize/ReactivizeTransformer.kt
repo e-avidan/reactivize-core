@@ -209,7 +209,7 @@ class TransformVisitor : WorkUnitVisitor {
     }
 
     private fun createSubscribeMethodInstructions(
-        sootClass: SootClass,
+        dependencyClass: SootClass,
         observableFieldName: String,
         namePrefix: String,
         subscriberBody: JimpleBody,
@@ -220,9 +220,11 @@ class TransformVisitor : WorkUnitVisitor {
     ): List<Unit> {
         val disposableHelper = Scene.v().getSootClass("il.ac.technion.cs.reactivize.helpers.DisposableStore")
         val disposableField = SootField("$observableFieldName\$reactivize\$disposable", disposableHelper.type)
-        println(disposableHelper.methods)
-        println("${disposableHelper.name}: ${disposableHelper.fields}")
-        addFieldToClass(sootClass, disposableHelper.getMethod("create", listOf()), disposableField)
+        addFieldToClass(
+            subscriberBody.method.declaringClass,
+            disposableHelper.getMethod("create", listOf()),
+            disposableField
+        )
 
         val observable = Jimple.v().newLocal(
             "${namePrefix}observable",
@@ -238,7 +240,7 @@ class TransformVisitor : WorkUnitVisitor {
             .newLocal("${namePrefix}disposable", Scene.v().getType("io.reactivex.rxjava3.disposables.Disposable"))
         val disposableHelperLocal = Jimple.v().newLocal("${namePrefix}disposableHelper", disposableHelper.type)
         subscriberBody.locals.addAll(listOf(observable, lambda, consumer, disposable, disposableHelperLocal))
-        val memberObservableField = sootClass.getField(
+        val memberObservableField = dependencyClass.getField(
             observableFieldName,
             Scene.v().getType("io.reactivex.rxjava3.subjects.BehaviorSubject")
         )
@@ -287,7 +289,7 @@ class TransformVisitor : WorkUnitVisitor {
                 newInvokeStmt(
                     newVirtualInvokeExpr(
                         instance,
-                        sootClass.getMethodByName(subscriberMethodName).makeRef()
+                        dependencyClass.getMethodByName(subscriberMethodName).makeRef()
                     )
                 )
             ) else listOf<Unit>())
