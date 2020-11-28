@@ -42,11 +42,8 @@ object SootUtil {
     }
 
     fun getPTAQuery(): GeomQueries {
-        verifyPTAConfigured()
-
-        val pta = Scene.v().pointsToAnalysis
-        val geomPTA = pta as GeomPointsTo
-        return GeomQueries(geomPTA)
+        val pta = verifyPTAConfigured()
+        return GeomQueries(pta)
     }
 
     private fun reset() {
@@ -91,11 +88,15 @@ object SootUtil {
         Options.v().setPhaseOption("cg.spark","geom-pta:true");
     }
 
-    private fun verifyPTAConfigured() {
-        val ptaClass = Scene.v().pointsToAnalysis.javaClass.name
+    private fun verifyPTAConfigured(): GeomPointsTo {
+        val pta = Scene.v().pointsToAnalysis
+        val ptaClass = pta.javaClass.name
+
         if (ptaClass != EXPECTED_PTA_CLASS) {
             throw Exception("PTA loaded incorrectly - got $ptaClass")
         }
+
+        return pta as GeomPointsTo
     }
 
     private fun load() {
@@ -103,12 +104,16 @@ object SootUtil {
         PackManager.v().runPacks()
     }
 
-    private fun loadMethod(methodSignature: String, className: String): UnitGraph {
+    private fun resolveClass(className: String): SootClass {
         if (!Scene.v().containsClass(className)) {
             throw Exception("Class $className should have been loaded (see addBasicClass)")
         }
 
-        val klass = Scene.v().getSootClass(className)
+        return Scene.v().getSootClass(className)
+    }
+
+    fun loadMethod(methodSignature: String, className: String): UnitGraph {
+        val klass = resolveClass(className)
         val method = klass.getMethod(methodSignature)
         val body = method.retrieveActiveBody()
 
