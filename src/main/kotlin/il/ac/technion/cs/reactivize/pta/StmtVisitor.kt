@@ -57,6 +57,9 @@ class StmtVisitor(private val ptg: PointsToGraph, var analysis: AnalysisType) : 
                 ptg.locals[x] = lset
 
                 // R� = R U { (n,f,ln) | n in L(y) }
+                if (set == null) {
+                    return
+                }
                 for (local in set!!) {
                     val e = Edge(local, rightExprInfo.field, ln)
                     ptg.redges.add(e)
