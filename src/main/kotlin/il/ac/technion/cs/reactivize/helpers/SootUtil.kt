@@ -1,5 +1,7 @@
 package il.ac.technion.cs.reactivize.helpers
 
+import il.ac.technion.cs.reactivize.pta.PTA
+import il.ac.technion.cs.reactivize.pta.PTAOptions
 import soot.G
 import soot.PackManager
 import soot.Scene
@@ -8,6 +10,7 @@ import soot.jimple.spark.geom.geomPA.GeomPointsTo
 import soot.jimple.spark.geom.geomPA.GeomQueries
 import soot.options.Options
 import soot.toolkits.graph.BriefUnitGraph
+import soot.toolkits.graph.DirectedGraph
 import soot.toolkits.graph.UnitGraph
 import java.io.File
 import java.nio.file.Paths
@@ -131,6 +134,13 @@ object SootUtil {
 
         addBasicClass(sampleClassName)
         load()
+
+        PTA.run(
+            PTAOptions(
+                className = sampleClassName,
+                methodSignature = "void main()"
+            )
+        )
 
         return loadMethod("void main()", sampleClassName)
     }
