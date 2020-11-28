@@ -1,66 +1,58 @@
 package il.ac.technion.cs.reactivize.pta
 
-import il.ac.technion.cs.reactivize.REQUIRED_CLASS_NAMES
-import il.ac.technion.cs.reactivize.ReactivizePostCompilerTest
-import org.junit.Assert
+import il.ac.technion.cs.reactivize.helpers.SootUtil
 import org.junit.jupiter.api.BeforeAll
-import org.junit.jupiter.api.BeforeEach
+
 import org.junit.jupiter.api.Test
-import soot.G
-import soot.Scene
-import soot.SootClass
-import soot.options.Options
-import java.io.File
-import java.nio.file.Files
-import java.nio.file.Paths
+import soot.toolkits.graph.UnitGraph
 
 class SimpleSplitTests {
-    @BeforeEach
-    fun configureClassPath() {
-        val classpath: Iterable<File> =
-            System.getProperty("java.class.path").split(":").map(::File).filter(File::exists) + listOf(
-                Paths.get(
-                    SimpleSplitTests::class.java.getResource("/classes").toURI()
-                ).toFile()
+    companion object {
+        var graph: UnitGraph? = null
+
+        @BeforeAll
+        @JvmStatic
+        fun loadSoot() {
+            graph = SootUtil.initSootWithKlassAndPTA(
+                SimpleSplitTests::class,
+                sampleName = "splitting.simple.SimpleNoSplitExampleKt"
             )
 
-        G.v().resetSpark()
-        Options.v().set_whole_program(true)
-        Options.v().setPhaseOption("jb", "use-original-names:true")
-        Options.v().setPhaseOption("cg.spark", "on")
-
-        val javaHome = System.getProperty("java.home")
-        val sootCp =
-            "VIRTUAL_FS_FOR_JDK:${classpath.joinToString(separator = ":") { it.path }}:${Scene.defaultJavaClassPath()}:${javaHome}"
-        println(sootCp)
-        Options.v().set_soot_classpath(sootCp)
-
-        Options.v().set_prepend_classpath(true)
-        Options.v().set_no_bodies_for_excluded(true)
-        Options.v().set_allow_phantom_refs(true)
-        Options.v().set_whole_program(true)
-
-        Options.v().setPhaseOption("cg.spark", "on")
-        Options.v().setPhaseOption("jb", "use-original-names:true")
-        Options.v().set_output_format(Options.output_format_jimple)
-
-//        Scene.v().loadNecessaryClasses()
-    }
-
-    @BeforeEach
-    fun resetSoot() {
-//        soot.G.reset()
+            println(graph!!)
+        }
     }
 
     @Test
-    fun test10() {
-        val analysis = PtgForwardAnalysis(
-            "void main()",
-            "il.ac.technion.cs.reactivize.sample.splitting.simple.SimpleNoSplitExampleKt",
-            PointsToGraph(),
-            PtgForwardAnalysis.AnalysisType.E2
-        )
+    fun verifyPTAForSamePtr() {
+        val query = SootUtil.getPTAQuery()
+        val locals = graph!!.body.locals.toList()
 
-        val locals: Map<String, Set<String>?> = analysis.pointsToGraph.locals
+        val qgVar = locals[1]
+
+        assert(query.isAlias(qgVar, qgVar)) { "Should at the very least work for ANY context" }
+        assert(query.isAliasCI(qgVar, qgVar)) { "Should be true for ALL contexts" }
+    }
+
+    @Test
+    fun verifyPTAForSamePtrDifferentLocal() {
+        val query = SootUtil.getPTAQuery()
+        val locals = graph!!.body.locals.toList()
+
+        val qgVar = locals[0]
+        val stringBuilderVar = locals[1]
+
+        assert(!query.isAlias(qgVar, stringBuilderVar)) { "Different vars" }
+        assert(!query.isAliasCI(qgVar, stringBuilderVar)) { "Different vars" }
+    }
+
+    @Test
+    fun verifyPTAForJimpleVar() {
+        val query = SootUtil.getPTAQuery()
+        val locals = graph!!.body.locals.toList()
+
+        val jimpleGeneratedVar = locals[2]
+
+        assert(!query.isAlias(jimpleGeneratedVar, jimpleGeneratedVar)) { "Should be false" }
+        assert(!query.isAliasCI(jimpleGeneratedVar, jimpleGeneratedVar)) { "Should be false" }
     }
 }
