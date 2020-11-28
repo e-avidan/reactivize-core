@@ -4,6 +4,7 @@ import il.ac.technion.cs.reactivize.helpers.SootUtil
 import org.junit.jupiter.api.BeforeAll
 
 import org.junit.jupiter.api.Test
+import soot.jimple.internal.JNewExpr
 import soot.toolkits.graph.UnitGraph
 
 class SimpleSplitTests {
@@ -27,7 +28,8 @@ class SimpleSplitTests {
         val query = SootUtil.getPTAQuery()
         val locals = graph!!.body.locals.toList()
 
-        val qgVar = locals[1]
+        val qgVar = locals[0]
+        PTATestUtils.assertLocalAssignment(graph, qgVar, "new il.ac.technion.cs.reactivize.sample.finance.QuoteGetter")
 
         assert(query.isAlias(qgVar, qgVar)) { "Should at the very least work for ANY context" }
         assert(query.isAliasCI(qgVar, qgVar)) { "Should be true for ALL contexts" }
@@ -41,6 +43,9 @@ class SimpleSplitTests {
         val qgVar = locals[0]
         val stringBuilderVar = locals[1]
 
+        PTATestUtils.assertLocalAssignment(graph, qgVar, "new il.ac.technion.cs.reactivize.sample.finance.QuoteGetter")
+        PTATestUtils.assertLocalAssignment(graph, stringBuilderVar, "new java.lang.StringBuilder")
+
         assert(!query.isAlias(qgVar, stringBuilderVar)) { "Different vars" }
         assert(!query.isAliasCI(qgVar, stringBuilderVar)) { "Different vars" }
     }
@@ -51,6 +56,7 @@ class SimpleSplitTests {
         val locals = graph!!.body.locals.toList()
 
         val jimpleGeneratedVar = locals[2]
+        PTATestUtils.assertGeneratedVar(graph, jimpleGeneratedVar)
 
         assert(!query.isAlias(jimpleGeneratedVar, jimpleGeneratedVar)) { "Should be false" }
         assert(!query.isAliasCI(jimpleGeneratedVar, jimpleGeneratedVar)) { "Should be false" }
