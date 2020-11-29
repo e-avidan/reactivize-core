@@ -1,6 +1,10 @@
 package il.ac.technion.cs.reactivize.helpers
 
+import soot.SootMethod
+
 object RCTUtil {
+    val BUILTIN_METHOD_PREFIXES = listOf("sun", "java", "kotlin", "jvm", "io.reactivex")
+
     fun <K, V> mergeMapsOfSets(dest: MutableMap<K, MutableSet<V>>, src: Map<K, MutableSet<V>>) {
         for ((key, values) in src.entries) {
             getNestedMapSet(dest, key).addAll(values)
@@ -16,5 +20,10 @@ object RCTUtil {
         }
 
         return set
+    }
+
+    fun isBuiltinMethod(method: SootMethod): Boolean {
+        val packageName = method.declaringClass.packageName
+        return BUILTIN_METHOD_PREFIXES.any { packageName.startsWith(it) }
     }
 }

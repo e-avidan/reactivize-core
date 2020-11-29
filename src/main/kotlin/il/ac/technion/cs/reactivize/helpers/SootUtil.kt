@@ -3,12 +3,8 @@ package il.ac.technion.cs.reactivize.helpers
 import il.ac.technion.cs.reactivize.pta.PTA
 import il.ac.technion.cs.reactivize.pta.PTAGraph
 import il.ac.technion.cs.reactivize.pta.PTAOptions
-import soot.G
-import soot.PackManager
-import soot.Scene
-import soot.SootClass
+import soot.*
 import soot.jimple.spark.geom.geomPA.GeomPointsTo
-import soot.jimple.spark.geom.geomPA.GeomQueries
 import soot.options.Options
 import soot.toolkits.graph.BriefUnitGraph
 import soot.toolkits.graph.UnitGraph
@@ -19,6 +15,9 @@ import kotlin.reflect.KClass
 object SootUtil {
     val EXPECTED_PTA_CLASS = "soot.jimple.spark.geom.geomPA.GeomPointsTo"
     val TARGET_CLASS = "il.ac.technion.cs.reactivize.sample.finance.QuoteGetter"  // TODO: get from outside
+
+    // TODO: this is a bit of a lie, since we want to see subscribe is called
+    val TARGET_METHOD = "io.reactivex.rxjava3.subjects.BehaviorSubject getPriceObservable()"  // TODO: get from outside
 
     fun <T: Any> initSootWithKlassAndPTA(klass: KClass<T>, sampleName: String? = null): PTAGraph? {
 //        var verifyPTA = tru=
@@ -116,11 +115,15 @@ object SootUtil {
         return Scene.v().getSootClass(className)
     }
 
-    fun loadMethod(methodSignature: String, className: String): UnitGraph {
+    fun resolveMethod(methodSignature: String, className: String): SootMethod {
         val klass = resolveClass(className)
         val method = klass.getMethod(methodSignature)
-        val body = method.retrieveActiveBody()
 
+        return method
+    }
+
+    fun loadMethod(method: SootMethod): UnitGraph {
+        val body = method.retrieveActiveBody()
         return BriefUnitGraph(body)
     }
 
@@ -141,7 +144,7 @@ object SootUtil {
             PTAOptions(
                 className = sampleClassName,
                 methodSignature = "void main()",
-                analysisClasses = setOf(resolveClass(TARGET_CLASS))
+                analysisMethods = setOf(resolveMethod(TARGET_METHOD, TARGET_CLASS))
             )
         )
     }

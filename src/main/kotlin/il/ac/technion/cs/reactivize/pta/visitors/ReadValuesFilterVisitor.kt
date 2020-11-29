@@ -1,14 +1,20 @@
 package il.ac.technion.cs.reactivize.pta.visitors
 
+import il.ac.technion.cs.reactivize.helpers.RCTUtil
+import soot.SootMethod
 import soot.Value
 import soot.jimple.*
 
 class ReadValuesFilterVisitor : AbstractJimpleValueSwitch() {
     private val resultingValues: MutableList<Value> = ArrayList()
+    var methodCalls: Map<SootMethod, List<Value?>>? = null
 
     fun applyTo(value: Value): List<Value> {
-        // TODO: decide if use boxes or not
-        value.useBoxes.forEach { it.value.apply(this) }
+        if (resultingValues.isNotEmpty()) {
+            throw Exception("Cannot reuse a visitor!")
+        }
+
+        value.apply(this)
         return resultingValues
     }
 
@@ -50,7 +56,8 @@ class ReadValuesFilterVisitor : AbstractJimpleValueSwitch() {
 
     private fun tryAddValueToResult(v: Value) {
         // Ignoring these
-        if (v is Constant) {
+        // TODO: maybe static fields are interesting?
+        if (v is Constant || v is StaticFieldRef) {
             return
         }
 
@@ -76,9 +83,35 @@ class ReadValuesFilterVisitor : AbstractJimpleValueSwitch() {
             expr.base.apply(this)
         }
 
-        expr.args.forEach { it.apply(this) }
+        // For anything built-in, we'd rather just process the read and ignore the method call
+        if (RCTUtil.isBuiltinMethod(expr.method)) {
+            expr.args.forEach { it.apply(this) }
+            return
+        }
 
-        // TODO: look at method - we will want to link the related graphs
+        val resolvedArgs = expr.args.map(this::applyAndGet)
+
+        // No values are passing, don't care about this sub-method
+        // TODO: what about side effects?
+        if (!resolvedArgs.any {it != null}) {
+            return
+        }
+
+        // TODO: instance context etc.
+        // Values are passing, gotta process that method as well
+        methodCalls = mapOf(expr.method to resolvedArgs)
+    }
+
+    private fun applyAndGet(value: Value): Value? {
+        val oldResultCount = resultingValues.size
+
+        value.apply(this)
+
+        return if (oldResultCount == resultingValues.size) {
+            null
+        } else {
+            resultingValues[resultingValues.size - 1]
+        }
     }
 
     override fun defaultCase(obj: Any) {

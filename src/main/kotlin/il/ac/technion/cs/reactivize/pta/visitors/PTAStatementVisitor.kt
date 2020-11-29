@@ -4,11 +4,22 @@ import il.ac.technion.cs.reactivize.pta.PTAGraph
 import soot.*
 import soot.jimple.*
 import soot.jimple.internal.*
+import java.lang.Exception
 
 class PTAStatementVisitor(val graph: PTAGraph) : AbstractStmtSwitch() {
     override fun caseIdentityStmt(stmt: IdentityStmt) {
-        println(stmt)
-        throw Exception("Haven't managed to make this happen yet")
+        val left = stmt.leftOp
+        val right = stmt.rightOp
+
+        // TODO: Type visitor?
+        var type: SootClass? = null
+        if (right is ThisRef || right is ParameterRef) {
+            type = (right.type as RefType).sootClass
+        } else {
+            throw Exception("Got unexpected right value to identity stmt: $right")
+        }
+
+        graph.introduce(left, right, type = type, isRoot = true)
     }
 
     override fun caseAssignStmt(stmt: AssignStmt) {
@@ -34,7 +45,7 @@ class PTAStatementVisitor(val graph: PTAGraph) : AbstractStmtSwitch() {
 
         // TODO: deal with all these writes, if we care...
         if (right is InstanceFieldRef) {
-            graph.link(right.base, stmt)
+            graph.link(right.base, stmt, null)
         }
 
         // Reads for all RHS values
@@ -83,8 +94,10 @@ class PTAStatementVisitor(val graph: PTAGraph) : AbstractStmtSwitch() {
     }
 
     private fun processReadValues(stmt: Stmt, value: Value): Boolean {
-        val values = ReadValuesFilterVisitor().applyTo(value)
-        values.forEach { graph.link(it, stmt) }
+        val readVisitor =  ReadValuesFilterVisitor()
+        val values = readVisitor.applyTo(value)
+
+        values.forEach { graph.link(it, stmt, readVisitor.methodCalls) }
 
         return values.isNotEmpty()
     }

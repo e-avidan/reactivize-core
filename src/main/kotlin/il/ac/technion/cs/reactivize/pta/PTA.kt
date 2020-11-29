@@ -1,17 +1,29 @@
 package il.ac.technion.cs.reactivize.pta
 
+import il.ac.technion.cs.reactivize.helpers.MultiMethodFlowAnalysis
 import il.ac.technion.cs.reactivize.helpers.SootUtil
+import soot.SootMethod
+import soot.toolkits.graph.DirectedGraph
+import soot.Unit
 
 object PTA {
     fun run(options: PTAOptions): PTAGraph {
-        val unitGraph = SootUtil.loadMethod(options.methodSignature, options.className)
-        val analysis = PTAForwardFlowAnalysis(unitGraph, options)
+        val initialMethod = SootUtil.resolveMethod(options.methodSignature, options.className)
+        val analysisContainer = MultiMethodFlowAnalysis(
+            loadMethod = SootUtil::loadMethod,
+            runAnalysis = { method: SootMethod, graph: DirectedGraph<Unit>, container: MultiMethodFlowAnalysis<Unit, PTAGraph> ->
+                PTAForwardFlowAnalysis(
+                    method,
+                    graph,
+                    options,
+                    container
+                )
+            }
+        )
 
-        if (unitGraph.tails.size != 1) {
-            throw Exception("Expected a single result flow")
-        }
+        val result = analysisContainer.analyze(initialMethod)
+        val finalResult = result.postProcess()  // TODO: maybe this shouldn't be here
 
-        val resultingFlows = unitGraph.tails.map { analysis.getFlowAfter(it).postProcess() }
-        return resultingFlows[0]
+        return finalResult
     }
 }
