@@ -1,10 +1,11 @@
 package il.ac.technion.cs.reactivize.pta
 
+import il.ac.technion.cs.reactivize.pta.visitors.PTAStatementVisitor
 import soot.Unit
 import soot.toolkits.graph.DirectedGraph
 import soot.toolkits.scalar.ForwardFlowAnalysis
 
-class PTAForwardFlowAnalysis(graph: DirectedGraph<Unit>) :
+class PTAForwardFlowAnalysis(graph: DirectedGraph<Unit>, val options: PTAOptions) :
     ForwardFlowAnalysis<Unit, PTAGraph>(graph) {
 
     init {
@@ -12,7 +13,7 @@ class PTAForwardFlowAnalysis(graph: DirectedGraph<Unit>) :
     }
 
     override fun newInitialFlow(): PTAGraph {
-        return PTAGraph()
+        return PTAGraph(options)
     }
 
     override fun merge(in1: PTAGraph, in2: PTAGraph, out: PTAGraph) {
@@ -25,8 +26,8 @@ class PTAForwardFlowAnalysis(graph: DirectedGraph<Unit>) :
     }
 
     override fun flowThrough(`in`: PTAGraph, d: Unit, out: PTAGraph) {
-        out.copy(`in`)
+        copy(`in`, out)
 
-        d.apply { StatementVisitor(out) }
+        d.apply(PTAStatementVisitor(out))
     }
 }

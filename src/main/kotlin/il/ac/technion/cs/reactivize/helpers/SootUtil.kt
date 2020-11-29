@@ -1,6 +1,7 @@
 package il.ac.technion.cs.reactivize.helpers
 
 import il.ac.technion.cs.reactivize.pta.PTA
+import il.ac.technion.cs.reactivize.pta.PTAGraph
 import il.ac.technion.cs.reactivize.pta.PTAOptions
 import soot.G
 import soot.PackManager
@@ -10,7 +11,6 @@ import soot.jimple.spark.geom.geomPA.GeomPointsTo
 import soot.jimple.spark.geom.geomPA.GeomQueries
 import soot.options.Options
 import soot.toolkits.graph.BriefUnitGraph
-import soot.toolkits.graph.DirectedGraph
 import soot.toolkits.graph.UnitGraph
 import java.io.File
 import java.nio.file.Paths
@@ -18,9 +18,10 @@ import kotlin.reflect.KClass
 
 object SootUtil {
     val EXPECTED_PTA_CLASS = "soot.jimple.spark.geom.geomPA.GeomPointsTo"
+    val TARGET_CLASS = "il.ac.technion.cs.reactivize.sample.finance.QuoteGetter"  // TODO: get from outside
 
-    fun <T: Any> initSootWithKlassAndPTA(klass: KClass<T>, sampleName: String? = null): UnitGraph? {
-        var verifyPTA = true
+    fun <T: Any> initSootWithKlassAndPTA(klass: KClass<T>, sampleName: String? = null): PTAGraph? {
+//        var verifyPTA = tru=
 
         try {
             reset()
@@ -35,19 +36,19 @@ object SootUtil {
             load()
             return null
         } catch (ex: Exception) {
-            verifyPTA = false
+//            verifyPTA = false
             throw ex
         } finally {
-            if (verifyPTA) {
-                verifyPTAConfigured()
-            }
+//            if (verifyPTA) {
+//                verifyPTAConfigured()
+//            }
         }
     }
 
-    fun getPTAQuery(): GeomQueries {
-        val pta = verifyPTAConfigured()
-        return GeomQueries(pta)
-    }
+//    fun getPTAQuery(): GeomQueries {
+//        val pta = verifyPTAConfigured()
+//        return GeomQueries(pta)
+//    }
 
     private fun reset() {
         G.reset()
@@ -63,9 +64,9 @@ object SootUtil {
 
         Options.v().setPhaseOption("jb", "use-original-names:true")
 
-        if (enablePTA) {
-            enablePTA()
-        }
+//        if (enablePTA) {
+//            enablePTA()
+//        }
     }
 
     private fun <T: Any> getKlassPath(klass: KClass<T>): Iterable<File> {
@@ -129,19 +130,19 @@ object SootUtil {
         c.setApplicationClass()
     }
 
-    private fun loadSample(name: String): UnitGraph {
+    private fun loadSample(name: String): PTAGraph {
         val sampleClassName = "il.ac.technion.cs.reactivize.sample.$name"
 
         addBasicClass(sampleClassName)
         load()
 
-        PTA.run(
+        // TODO: move this and clean up here
+        return PTA.run(
             PTAOptions(
                 className = sampleClassName,
-                methodSignature = "void main()"
+                methodSignature = "void main()",
+                analysisClasses = setOf(resolveClass(TARGET_CLASS))
             )
         )
-
-        return loadMethod("void main()", sampleClassName)
     }
 }

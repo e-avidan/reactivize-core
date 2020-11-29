@@ -6,7 +6,10 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import soot.toolkits.graph.UnitGraph
 
-class SimpleSplitTests {
+// TODO: just copied this for now to debug
+class InstanceThroughFunctionSplitTests {
+    var LAMBDA1_CLASSNAME = "il.ac.technion.cs.reactivize.sample.splitting.instance.InstanceSplitExampleKt\$main\$1"
+
     companion object {
         private lateinit var graph: PTAGraph
 
@@ -14,8 +17,8 @@ class SimpleSplitTests {
         @JvmStatic
         fun runAnalysis() {
             graph = SootUtil.initSootWithKlassAndPTA(
-                SimpleSplitTests::class,
-                sampleName = "splitting.simple.SimpleNoSplitExampleKt"
+                InstanceThroughFunctionSplitTests::class,
+                sampleName = "splitting.instance_through_function.InstanceThroughFunctionSplitExampleKt"
             )!!
         }
     }
@@ -25,16 +28,21 @@ class SimpleSplitTests {
         println(graph)
     }
 
+//
 //    @Test
-//    fun verifyPTAForSamePtr() {
+//    fun verifyPTAForCounter1() {
 //        val query = SootUtil.getPTAQuery()
 //        val locals = graph!!.body.locals.toList()
 //
-//        val qgVar = locals[0]
-//        PTATestUtil.assertLocalAssignment(graph, qgVar, PTATestUtil.QUOTE_GETTER_CTOR)
+//        val ctr1 = locals[3]
+//        PTATestUtil.assertLocalAssignment(graph, ctr1, PTATestUtil.ZERO_INITIALIZER)
 //
-//        assert(query.isAlias(qgVar, qgVar)) { "Should at the very least work for ANY context" }
-//        assert(query.isAliasCI(qgVar, qgVar)) { "Should be true for ALL contexts" }
+//        val lambda1 = locals[5]
+//        PTATestUtil.assertLocalAssignment(graph, lambda1, "new $LAMBDA1_CLASSNAME")
+////
+////
+////        assert(query.isAlias(qgVar, qgVar)) { "Should at the very least work for ANY context" }
+////        assert(query.isAliasCI(qgVar, qgVar)) { "Should be true for ALL contexts" }
 //    }
 //
 //    @Test
