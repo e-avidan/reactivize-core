@@ -22,7 +22,7 @@ class SimpleSplitTests {
 
     @Test
     fun verifyPTAForSamePtr() {
-        println(graph)
+        assert(0 == graph.roots.size)
     }
 
 //    @Test

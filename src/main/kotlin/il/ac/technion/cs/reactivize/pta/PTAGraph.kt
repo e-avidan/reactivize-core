@@ -39,7 +39,7 @@ class PTAGraph(
 
     private fun copyNode(original: PTANode): PTANode {
         // Check if we already copied it
-        val existingNode = if (original.target != null) values[original.target] else null
+        val existingNode = values[original.target]
         if (existingNode != null) {
             return existingNode
         }
@@ -139,17 +139,24 @@ class PTAGraph(
     TODO: add context depth
      */
     fun link(value: Value, unit: Unit, unitMethodCalls: Map<SootMethod, List<Value?>>?): PTANode {
-        val parent = values[value] ?: throw Exception("$value does not exist")
+        val parent = getExistingValueNode(value)
         val node = PTANode(value, unit = unit, type = null)
 
         if (parent.children.contains(node)) {
-            throw Exception("Trying to add the same child $node multiple times (QQ - will this happen?)")
+//            throw Exception("Trying to add the same child $node multiple times (QQ - will this happen?)")
+            // TODO: bad thing! gotta solve the assignment/invocation on baseRef problem here
+            return parent.children.find { it.hashCode() == node.hashCode() }!!
         }
 
         linkToMethod(node, unitMethodCalls)
 
         parent.children.add(node)
         return node
+    }
+
+    private fun getExistingValueNode(value: Value): PTANode {
+        // TODO: find better structure than hashmap, one that'll use equivTo
+        return values[value] ?: values[values.keys.find { it.equivTo(value) }] ?: throw Exception("$value does not exist")
     }
 
     /*

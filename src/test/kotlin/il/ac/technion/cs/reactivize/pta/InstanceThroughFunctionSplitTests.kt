@@ -25,7 +25,7 @@ class InstanceThroughFunctionSplitTests {
 
     @Test
     fun verifyPTAForSamePtr() {
-        println(graph)
+        assert(2 == graph.roots.size)
     }
 
 //
